@@ -1,0 +1,12 @@
+2026-10-11 20:26:42.299 [INFO ] main.cpp:374 | === BVH Physics - final test run ===
+2026-10-11 20:26:42.300 [INFO ] main.cpp:381 | build: Release | Oct 11 2026 20:22:05 | window=1280x720 dt=0.0167
+2026-10-11 20:26:42.374 [INFO ] main.cpp:397 | SDL initialized, creating 1280x720 window
+2026-10-11 20:26:42.609 [INFO ] main.cpp:427 | scene ready: 500 circles, mode=BVH-Median, tree overlay=OFF, depth=6
+2026-10-11 20:26:47.609 [INFO ] main.cpp:451 | status: mode=BVH-Median objects=500 nodes=999 pairs=1782 collisions=128 build=113.20us query=68.80us fps=479.2
+2026-10-11 20:26:52.611 [INFO ] main.cpp:451 | status: mode=BVH-Median objects=500 nodes=999 pairs=1837 collisions=148 build=112.60us query=69.90us fps=538.9
+2026-10-11 20:26:57.611 [INFO ] main.cpp:451 | status: mode=BVH-Median objects=500 nodes=999 pairs=1821 collisions=137 build=119.30us query=69.20us fps=526.5
+2026-10-11 20:27:02.613 [INFO ] main.cpp:451 | status: mode=BVH-Median objects=500 nodes=999 pairs=1780 collisions=142 build=109.90us query=66.50us fps=512.4
+2026-10-11 20:27:07.613 [INFO ] main.cpp:451 | status: mode=BVH-Median objects=500 nodes=999 pairs=1785 collisions=133 build=245.40us query=145.40us fps=373.3
+2026-10-11 20:27:10.316 [INFO ] main.cpp:610 | session end: 27.7 s elapsed, final mode=BVH-Median, objects=500
+2026-10-11 20:27:10.412 [INFO ] main.cpp:634 | clean exit
+2026-10-11 20:27:10.413 [INFO ] logger.h:0 | log summary: trace=1648 debug=0 info=12 warn=0 error=0
