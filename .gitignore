@@ -1,0 +1,18 @@
+# Build artifacts
+build/
+.vs/
+.vscode/
+
+# Runtime output
+*.log
+BENCHMARKS.md.local
+
+# Compiled
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.tlog
+
+# vcpkg installed packages
+vcpkg_installed/

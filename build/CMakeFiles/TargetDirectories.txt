@@ -1,3 +1,0 @@
-D:/DSA - BVH in Physics Engines/build/CMakeFiles/bvh_physics.dir
-D:/DSA - BVH in Physics Engines/build/CMakeFiles/ALL_BUILD.dir
-D:/DSA - BVH in Physics Engines/build/CMakeFiles/ZERO_CHECK.dir
