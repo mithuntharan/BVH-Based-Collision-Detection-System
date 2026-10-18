@@ -16,6 +16,7 @@ find_package(SDL3 REQUIRED CONFIG)
 add_executable(bvh_physics
     src/main.cpp
     src/collision.cpp
+    src/physics.cpp
 )
 
 target_link_libraries(bvh_physics PRIVATE SDL3::SDL3)

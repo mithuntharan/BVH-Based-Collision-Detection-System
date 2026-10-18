@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BVH Tree & Physics Collision Visualizer (DSA Case Study)</title>
+  <style>
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      margin: 4px 0 10px 0;
+      font-size: 24px;
+      color: #38bdf8;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #94a3b8;
+      margin-bottom: 12px;
+    }
+    .container {
+      display: flex;
+      gap: 16px;
+      max-width: 1200px;
+      width: 100%;
+    }
+    .canvas-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+    }
+    canvas {
+      background: #020617;
+      border: 2px solid #38bdf8;
+      border-radius: 6px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+    .sidebar {
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .card h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: 16px;
+      color: #38bdf8;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 6px;
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .stat-val {
+      font-family: monospace;
+      font-weight: bold;
+      color: #4ade80;
+    }
+    .btn-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+    button.active {
+      background: #10b981;
+    }
+    button.danger {
+      background: #ef4444;
+    }
+    button.danger:hover {
+      background: #dc2626;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .badge-elastic { background: #059669; }
+    .badge-inelastic { background: #b91c1c; }
+    .badge-partial { background: #d97706; }
+  </style>
+</head>
+<body>
+
+  <h1>Bounding Volume Hierarchy (BVH) & Contact Physics Simulation</h1>
+  <div class="subtitle">DSA Lab Evaluation 3 | C++ Algorithm & Contact Dynamics Implementation</div>
+
+  <div class="container">
+    <div class="canvas-card">
+      <canvas id="simCanvas" width="800" height="500"></canvas>
+      <div style="margin-top: 10px; font-size: 12px; color: #94a3b8;">
+        Bounding Boxes: <b>Cyan / Orange rectangles</b> show hierarchical BVH nodes | Particles: Color represents mass
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="card">
+        <h3>Simulation Controls</h3>
+        <div style="margin-bottom: 8px;">Collision Physics Regime:</div>
+        <div class="btn-group" style="margin-bottom: 10px;">
+          <button id="btnElastic" class="active" onclick="setMode('elastic')">Elastic (e=1.0)</button>
+          <button id="btnInelastic" onclick="setMode('inelastic')">Inelastic (e=0.0)</button>
+          <button id="btnPartial" onclick="setMode('partial')">Partial (e=0.75)</button>
+          <button id="btnFriction" class="active" onclick="toggleFriction()">Friction: ON</button>
+        </div>
+        <div class="btn-group">
+          <button id="btnGravity" onclick="toggleGravity()">Gravity: OFF</button>
+          <button id="btnBoxes" class="active" onclick="toggleBVHBoxes()">BVH Boxes: ON</button>
+          <button onclick="addBodies(5)">+5 Bodies</button>
+          <button class="danger" onclick="resetSim()">Reset</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Live Conservation Auditor</h3>
+        <div class="stat-row">
+          <span>Current Mode:</span>
+          <span id="txtMode" class="badge badge-elastic">ELASTIC (e=1.0)</span>
+        </div>
+        <div class="stat-row">
+          <span>Total Kinetic Energy:</span>
+          <span id="txtKE" class="stat-val">0.00 J</span>
+        </div>
+        <div class="stat-row">
+          <span>Total Linear Momentum:</span>
+          <span id="txtP" class="stat-val">0.00 kg·m/s</span>
+        </div>
+        <div class="stat-row">
+          <span>Cumulative Collisions:</span>
+          <span id="txtCollisions" class="stat-val">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Dissipated Energy:</span>
+          <span id="txtDissipated" class="stat-val" style="color:#f87171;">0.00 J</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>BVH ADT Performance Metric</h3>
+        <div class="stat-row">
+          <span>Rigid Bodies Count (N):</span>
+          <span id="txtBodyCount" class="stat-val">12</span>
+        </div>
+        <div class="stat-row">
+          <span>Total BVH Nodes:</span>
+          <span id="txtNodes" class="stat-val">23</span>
+        </div>
+        <div class="stat-row">
+          <span>Max Tree Depth:</span>
+          <span id="txtDepth" class="stat-val">4</span>
+        </div>
+        <div class="stat-row">
+          <span>BVH Broad-Phase Tests:</span>
+          <span id="txtBVHTests" class="stat-val">34</span>
+        </div>
+        <div class="stat-row">
+          <span>Brute Force O(N²):</span>
+          <span id="txtBruteTests" class="stat-val">66</span>
+        </div>
+        <div class="stat-row">
+          <span>Pruning Efficiency:</span>
+          <span id="txtPruned" class="stat-val" style="color:#38bdf8;">48.5%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let mode = 'elastic'; // elastic, inelastic, partial
+    let restitution = 1.0;
+    let frictionEnabled = true;
+    let gravityEnabled = false;
+    let showBVH = true;
+    let cumulativeCollisions = 0;
+    let energyDissipated = 0;
+
+    class RigidBody {
+      constructor(id, x, y, vx, vy, mass, radius, color) {
+        this.id = id;
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.mass = mass;
+        this.invMass = mass > 0 ? 1 / mass : 0;
+        this.radius = radius;
+        this.color = color;
+      }
+      getAABB() {
+        return {
+          minX: this.x - this.radius,
+          minY: this.y - this.radius,
+          maxX: this.x + this.radius,
+          maxY: this.y + this.radius
+        };
+      }
+      getKE() {
+        return 0.5 * this.mass * (this.vx * this.vx + this.vy * this.vy);
+      }
+    }
+
+    class BVHNode {
+      constructor(box, left = null, right = null, body = null) {
+        this.box = box;
+        this.left = left;
+        this.right = right;
+        this.body = body;
+      }
+      isLeaf() {
+        return this.left === null && this.right === null;
+      }
+    }
+
+    let bodies = [];
+    let bvhTests = 0;
+
+    function initBodies() {
+      bodies = [
+        new RigidBody(1, 120, 150, 180, 50, 4.0, 20, '#38bdf8'),
+        new RigidBody(2, 680, 150, -160, -40, 2.0, 16, '#fbbf24'),
+        new RigidBody(3, 200, 320, 140, -90, 3.0, 18, '#34d399'),
+        new RigidBody(4, 550, 320, -120, -70, 3.0, 18, '#a78bfa'),
+        new RigidBody(5, 400, 80, 0, 140, 1.5, 14, '#f472b6'),
+        new RigidBody(6, 400, 420, 0, -140, 1.5, 14, '#f87171'),
+        new RigidBody(7, 100, 400, 220, -110, 1.0, 12, '#38bdf8'),
+        new RigidBody(8, 700, 380, -200, 80, 2.5, 17, '#fbbf24'),
+        new RigidBody(9, 400, 250, 0, 0, 0, 25, '#94a3b8') // Static body
+      ];
+      cumulativeCollisions = 0;
+      energyDissipated = 0;
+    }
+
+    function buildBVH(bodyList, depth = 0) {
+      if (bodyList.length === 0) return null;
+      if (bodyList.length === 1) {
+        return new BVHNode(bodyList[0].getAABB(), null, null, bodyList[0]);
+      }
+
+      let totalBox = {
+        minX: Math.min(...bodyList.map(b => b.x - b.radius)),
+        minY: Math.min(...bodyList.map(b => b.y - b.radius)),
+        maxX: Math.max(...bodyList.map(b => b.x + b.radius)),
+        maxY: Math.max(...bodyList.map(b => b.y + b.radius))
+      };
+
+      let extentX = totalBox.maxX - totalBox.minX;
+      let extentY = totalBox.maxY - totalBox.minY;
+
+      if (extentX >= extentY) {
+        bodyList.sort((a, b) => a.x - b.x);
+      } else {
+        bodyList.sort((a, b) => a.y - b.y);
+      }
+
+      let mid = Math.floor(bodyList.length / 2);
+      let left = buildBVH(bodyList.slice(0, mid), depth + 1);
+      let right = buildBVH(bodyList.slice(mid), depth + 1);
+
+      return new BVHNode(totalBox, left, right, null);
+    }
+
+    function boxIntersects(a, b) {
+      return !(a.maxX < b.minX || a.minX > b.maxX || a.maxY < b.minY || a.minY > b.maxY);
+    }
+
+    function queryTwoNodes(nodeA, nodeB, pairs) {
+      if (!nodeA || !nodeB) return;
+      bvhTests++;
+      if (!boxIntersects(nodeA.box, nodeB.box)) return;
+
+      if (nodeA.isLeaf() && nodeB.isLeaf()) {
+        if (nodeA.body.id !== nodeB.body.id) {
+          pairs.push([nodeA.body, nodeB.body]);
+        }
+        return;
+      }
+      if (nodeA.isLeaf()) {
+        queryTwoNodes(nodeA, nodeB.left, pairs);
+        queryTwoNodes(nodeA, nodeB.right, pairs);
+      } else if (nodeB.isLeaf()) {
+        queryTwoNodes(nodeA.left, nodeB, pairs);
+        queryTwoNodes(nodeA.right, nodeB, pairs);
+      } else {
+        queryTwoNodes(nodeA.left, nodeB, pairs);
+        queryTwoNodes(nodeA.right, nodeB, pairs);
+      }
+    }
+
+    function querySelf(node, pairs) {
+      if (!node || node.isLeaf()) return;
+      querySelf(node.left, pairs);
+      querySelf(node.right, pairs);
+      queryTwoNodes(node.left, node.right, pairs);
+    }
+
+    function resolveCollision(a, b) {
+      let dx = b.x - a.x;
+      let dy = b.y - a.y;
+      let dist = Math.hypot(dx, dy);
+      let radiusSum = a.radius + b.radius;
+
+      if (dist < radiusSum) {
+        let nx = dist > 0 ? dx / dist : 1;
+        let ny = dist > 0 ? dy / dist : 0;
+        let pen = radiusSum - dist;
+
+        let rvx = b.vx - a.vx;
+        let rvy = b.vy - a.vy;
+        let vn = rvx * nx + rvy * ny;
+
+        if (vn > 0) return; // separating
+
+        let invSum = a.invMass + b.invMass;
+        if (invSum <= 0) return;
+
+        let keBefore = a.getKE() + b.getKE();
+
+        // Impulse formula with restitution e
+        let e = restitution;
+        let jn = -(1 + e) * vn / invSum;
+
+        a.vx -= jn * a.invMass * nx;
+        a.vy -= jn * a.invMass * ny;
+        b.vx += jn * b.invMass * nx;
+        b.vy += jn * b.invMass * ny;
+
+        // Coulomb Friction
+        if (frictionEnabled) {
+          let nrvx = b.vx - a.vx;
+          let nrvy = b.vy - a.vy;
+          let nvn = nrvx * nx + nrvy * ny;
+          let tx = nrvx - nvn * nx;
+          let ty = nrvy - nvn * ny;
+          let tlen = Math.hypot(tx, ty);
+          if (tlen > 1e-4) {
+            tx /= tlen;
+            ty /= tlen;
+            let jt = -(nrvx * tx + nrvy * ty) / invSum;
+            let mu = 0.3;
+            jt = Math.max(-jn * mu, Math.min(jn * mu, jt));
+            a.vx -= jt * a.invMass * tx;
+            a.vy -= jt * a.invMass * ty;
+            b.vx += jt * b.invMass * tx;
+            b.vy += jt * b.invMass * ty;
+          }
+        }
+
+        // Positional de-penetration
+        let slop = 0.01;
+        let percent = 0.8;
+        let corr = (Math.max(pen - slop, 0) / invSum) * percent;
+        a.x -= corr * a.invMass * nx;
+        a.y -= corr * a.invMass * ny;
+        b.x += corr * b.invMass * nx;
+        b.y += corr * b.invMass * ny;
+
+        let keAfter = a.getKE() + b.getKE();
+        if (keBefore > keAfter) {
+          energyDissipated += (keBefore - keAfter);
+        }
+        cumulativeCollisions++;
+      }
+    }
+
+    function drawBVH(node, depth = 0) {
+      if (!node) return;
+      if (!node.isLeaf()) {
+        ctx.strokeStyle = depth % 2 === 0 ? 'rgba(56, 189, 248, 0.4)' : 'rgba(251, 191, 36, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(node.box.minX, node.box.minY, node.box.maxX - node.box.minX, node.box.maxY - node.box.minY);
+        drawBVH(node.left, depth + 1);
+        drawBVH(node.right, depth + 1);
+      }
+    }
+
+    let lastTime = performance.now();
+
+    function step() {
+      let now = performance.now();
+      let dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+
+      // Kinematics
+      for (let b of bodies) {
+        if (b.invMass === 0) continue;
+        if (gravityEnabled) b.vy += 250 * dt;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+
+        // Walls
+        if (b.x - b.radius < 0) { b.x = b.radius; b.vx = -b.vx * restitution; }
+        if (b.x + b.radius > canvas.width) { b.x = canvas.width - b.radius; b.vx = -b.vx * restitution; }
+        if (b.y - b.radius < 0) { b.y = b.radius; b.vy = -b.vy * restitution; }
+        if (b.y + b.radius > canvas.height) { b.y = canvas.height - b.radius; b.vy = -b.vy * restitution; }
+      }
+
+      // BVH Construction & Broad Phase
+      bvhTests = 0;
+      let root = buildBVH([...bodies]);
+      let pairs = [];
+      querySelf(root, pairs);
+
+      // Narrow Phase Resolution
+      for (let p of pairs) {
+        resolveCollision(p[0], p[1]);
+      }
+
+      // Render
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (showBVH && root) {
+        drawBVH(root);
+      }
+
+      // Draw Bodies & Velocity Vectors
+      for (let b of bodies) {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+        ctx.fillStyle = b.color;
+        ctx.fill();
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Velocity vector line
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(b.x + b.vx * 0.12, b.y + b.vy * 0.12);
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      // Update Stats
+      let totalKE = bodies.reduce((sum, b) => sum + b.getKE(), 0);
+      let totalPx = bodies.reduce((sum, b) => sum + b.mass * b.vx, 0);
+      let totalPy = bodies.reduce((sum, b) => sum + b.mass * b.vy, 0);
+      let totalP = Math.hypot(totalPx, totalPy);
+
+      document.getElementById('txtKE').innerText = totalKE.toFixed(1) + ' J';
+      document.getElementById('txtP').innerText = totalP.toFixed(1) + ' kg·m/s';
+      document.getElementById('txtCollisions').innerText = cumulativeCollisions;
+      document.getElementById('txtDissipated').innerText = energyDissipated.toFixed(1) + ' J';
+
+      let n = bodies.length;
+      let bruteForce = (n * (n - 1)) / 2;
+      document.getElementById('txtBodyCount').innerText = n;
+      document.getElementById('txtBVHTests').innerText = bvhTests;
+      document.getElementById('txtBruteTests').innerText = bruteForce;
+      let prunedRatio = bruteForce > 0 ? ((bruteForce - bvhTests) / bruteForce * 100) : 0;
+      document.getElementById('txtPruned').innerText = prunedRatio.toFixed(1) + '%';
+
+      requestAnimationFrame(step);
+    }
+
+    function setMode(newMode) {
+      mode = newMode;
+      document.getElementById('btnElastic').classList.remove('active');
+      document.getElementById('btnInelastic').classList.remove('active');
+      document.getElementById('btnPartial').classList.remove('active');
+
+      let badge = document.getElementById('txtMode');
+
+      if (mode === 'elastic') {
+        restitution = 1.0;
+        document.getElementById('btnElastic').classList.add('active');
+        badge.innerText = 'ELASTIC (e=1.0)';
+        badge.className = 'badge badge-elastic';
+      } else if (mode === 'inelastic') {
+        restitution = 0.0;
+        document.getElementById('btnInelastic').classList.add('active');
+        badge.innerText = 'INELASTIC (e=0.0)';
+        badge.className = 'badge badge-inelastic';
+      } else {
+        restitution = 0.75;
+        document.getElementById('btnPartial').classList.add('active');
+        badge.innerText = 'PARTIALLY ELASTIC (e=0.75)';
+        badge.className = 'badge badge-partial';
+      }
+    }
+
+    function toggleFriction() {
+      frictionEnabled = !frictionEnabled;
+      let btn = document.getElementById('btnFriction');
+      btn.innerText = frictionEnabled ? 'Friction: ON' : 'Friction: OFF';
+      btn.classList.toggle('active', frictionEnabled);
+    }
+
+    function toggleGravity() {
+      gravityEnabled = !gravityEnabled;
+      let btn = document.getElementById('btnGravity');
+      btn.innerText = gravityEnabled ? 'Gravity: ON' : 'Gravity: OFF';
+      btn.classList.toggle('active', gravityEnabled);
+    }
+
+    function toggleBVHBoxes() {
+      showBVH = !showBVH;
+      let btn = document.getElementById('btnBoxes');
+      btn.innerText = showBVH ? 'BVH Boxes: ON' : 'BVH Boxes: OFF';
+      btn.classList.toggle('active', showBVH);
+    }
+
+    function addBodies(count) {
+      for (let i = 0; i < count; i++) {
+        let colors = ['#38bdf8', '#fbbf24', '#34d399', '#f472b6', '#a78bfa'];
+        bodies.push(new RigidBody(
+          bodies.length + 1,
+          50 + Math.random() * 700,
+          50 + Math.random() * 400,
+          (Math.random() - 0.5) * 300,
+          (Math.random() - 0.5) * 300,
+          1 + Math.random() * 3,
+          12 + Math.random() * 8,
+          colors[Math.floor(Math.random() * colors.length)]
+        ));
+      }
+    }
+
+    function resetSim() {
+      initBodies();
+      setMode('elastic');
+    }
+
+    initBodies();
+    requestAnimationFrame(step);
+  </script>
+</body>
+</html>

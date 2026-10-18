@@ -8,7 +8,11 @@
 #include <string>
 #include <random>
 #include "collision.h"
+#include "physics.h"
 #include "logger.h"
+
+static PhysicsConfig g_physicsConfig;
+static PhysicsAudit g_physicsAudit;
 
 constexpr int WINDOW_W = 1280;
 constexpr int WINDOW_H = 720;
@@ -42,6 +46,11 @@ static Circle makeCircle(float x, float y) {
     c.g_col = (uint8_t)col(g_rng);
     c.b_col = (uint8_t)col(g_rng);
     c.flash_timer = 0;
+    c.mass = c.r * 0.2f;
+    c.invMass = 1.0f / c.mass;
+    c.restitution = 1.0f;
+    c.staticFriction = 0.35f;
+    c.dynamicFriction = 0.25f;
     return c;
 }
 
@@ -55,39 +64,11 @@ static void spawnCircles(std::vector<Circle>& circles, int count, int offset) {
 }
 
 static void resolveCollision(Circle& a, Circle& b) {
-    float dx = b.x - a.x, dy = b.y - a.y;
-    float dist2 = dx * dx + dy * dy;
-    float minDist = a.r + b.r;
-    if (dist2 >= minDist * minDist || dist2 == 0.0f) return;
-
-    float dist = std::sqrt(dist2);
-    float nx = dx / dist, ny = dy / dist;
-    float rvx = b.vx - a.vx, rvy = b.vy - a.vy;
-    float velAlongNormal = rvx * nx + rvy * ny;
-
-    if (velAlongNormal < 0.0f) {
-        float j = -(1.0f + CIRCLE_RESTITUTION) * velAlongNormal / 2.0f;
-        a.vx -= j * nx; a.vy -= j * ny;
-        b.vx += j * nx; b.vy += j * ny;
-        a.flash_timer = 1; // Highlight ring for 1 frame
-        b.flash_timer = 1;
-    }
-
-    float overlap = minDist - dist;
-    a.x -= nx * overlap * 0.5f; a.y -= ny * overlap * 0.5f;
-    b.x += nx * overlap * 0.5f; b.y += ny * overlap * 0.5f;
+    resolvePhysicsCollision(a, b, g_physicsConfig, g_physicsAudit);
 }
 
 static void stepPhysics(std::vector<Circle>& circles) {
-    for (auto& c : circles) {
-        c.x += c.vx * DT;
-        c.y += c.vy * DT;
-        if (c.x - c.r < 0) { c.x = c.r; c.vx = -c.vx * WALL_RESTITUTION; }
-        if (c.x + c.r > WINDOW_W) { c.x = WINDOW_W - c.r; c.vx = -c.vx * WALL_RESTITUTION; }
-        if (c.y - c.r < 0) { c.y = c.r; c.vy = -c.vy * WALL_RESTITUTION; }
-        if (c.y + c.r > WINDOW_H) { c.y = WINDOW_H - c.r; c.vy = -c.vy * WALL_RESTITUTION; }
-        if (c.flash_timer > 0) c.flash_timer--;
-    }
+    updatePhysicsKinematics(circles, DT, (float)WINDOW_W, (float)WINDOW_H, g_physicsConfig);
 }
 
 // Filled disk primitive. Colors are set by the caller.
@@ -504,6 +485,29 @@ int main(int argc, char** argv) {
                         force_rebuild = true;
                         LOG_INFO("input: R -> scene reset, %zu circles", circles.size());
                         break;
+                    case SDLK_E:
+                        g_physicsConfig.mode = PhysicsCollisionMode::Elastic;
+                        g_physicsConfig.restitution = 1.0f;
+                        LOG_INFO("physics: switched to ELASTIC mode (e = 1.0, kinetic energy conserved)");
+                        break;
+                    case SDLK_I:
+                        g_physicsConfig.mode = PhysicsCollisionMode::Inelastic;
+                        g_physicsConfig.restitution = 0.0f;
+                        LOG_INFO("physics: switched to INELASTIC mode (e = 0.0, maximal kinetic energy dissipation)");
+                        break;
+                    case SDLK_P:
+                        g_physicsConfig.mode = PhysicsCollisionMode::PartiallyElastic;
+                        g_physicsConfig.restitution = 0.75f;
+                        LOG_INFO("physics: switched to PARTIALLY ELASTIC mode (e = 0.75)");
+                        break;
+                    case SDLK_F:
+                        g_physicsConfig.frictionEnabled = !g_physicsConfig.frictionEnabled;
+                        LOG_INFO("physics: Coulomb surface friction %s", g_physicsConfig.frictionEnabled ? "ENABLED" : "DISABLED");
+                        break;
+                    case SDLK_G:
+                        g_physicsConfig.gravityEnabled = !g_physicsConfig.gravityEnabled;
+                        LOG_INFO("physics: environmental gravity %s", g_physicsConfig.gravityEnabled ? "ENABLED" : "DISABLED");
+                        break;
                     default: break;
                 }
             }
@@ -592,16 +596,20 @@ int main(int argc, char** argv) {
 
         SDL_RenderPresent(renderer);
 
+        auditPhysicsConservation(circles, g_physicsAudit);
+        const char* pModes[] = { "ELASTIC(e=1.0)", "INELASTIC(e=0.0)", "PARTIAL(e=0.75)" };
         const char* names[] = { "BVH-Median", "BVH-SAH", "BVH-Refit" };
-        char title[300];
+        char title[350];
         snprintf(title, sizeof(title),
-            "[Mode: %s] | Objects: %zu | Pairs Tested: %d | Collisions: %d | FPS: %.0f%s%s",
-            names[mode], circles.size(),
+            "[%s | %s | Fric:%s | Grav:%s] KE:%.0f J | N:%zu | Pairs:%d | Col:%d | FPS:%.0f",
+            names[mode], pModes[(int)g_physicsConfig.mode],
+            g_physicsConfig.frictionEnabled ? "ON" : "OFF",
+            g_physicsConfig.gravityEnabled ? "ON" : "OFF",
+            g_physicsAudit.totalKE,
+            circles.size(),
             stats.pairs_tested,
             stats.collisions_found,
-            fps,
-            paused ? " [PAUSED]" : "",
-            show_tree ? " [Tree ON]" : "");
+            fps);
         SDL_SetWindowTitle(window, title);
     }
 

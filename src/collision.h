@@ -9,6 +9,11 @@ struct Circle {
     float r;
     uint8_t r_col, g_col, b_col;
     uint8_t flash_timer = 0; // Frames remaining for collision highlight ring
+    float mass = 1.0f;
+    float invMass = 1.0f;
+    float restitution = 1.0f;
+    float staticFriction = 0.3f;
+    float dynamicFriction = 0.2f;
 };
 
 struct AABB {
