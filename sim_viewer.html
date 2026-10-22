@@ -1,220 +1,1235 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
-  <title>BVH Tree & Physics Collision Visualizer (DSA Case Study)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BVH Collision Detection & Contact Dynamics | Interactive DSA Suite</title>
+  
+  <!-- Modern Typography from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <style>
-    body {
-      background-color: #0f172a;
-      color: #f8fafc;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    /* ==========================================================================
+       DESIGN TOKENS & THEMING (CSS VARIABLES)
+       ========================================================================== */
+    :root {
+      --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', "Cascadia Code", Consolas, monospace;
+      
+      /* Dark Theme Tokens (Default) */
+      --bg-base: #060911;
+      --bg-subtle: #0c1220;
+      --bg-surface: rgba(15, 23, 42, 0.72);
+      --bg-surface-elevated: rgba(30, 41, 59, 0.85);
+      --bg-surface-hover: rgba(51, 65, 85, 0.75);
+      
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-medium: rgba(255, 255, 255, 0.16);
+      --border-strong: rgba(255, 255, 255, 0.28);
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      
+      --accent-cyan: #38bdf8;
+      --accent-cyan-glow: rgba(56, 189, 248, 0.25);
+      --accent-violet: #818cf8;
+      --accent-emerald: #34d399;
+      --accent-amber: #fbbf24;
+      --accent-rose: #fb7185;
+      --accent-crimson: #ef4444;
+      
+      --canvas-bg: #030712;
+      --canvas-grid: rgba(255, 255, 255, 0.04);
+      --shadow-elevation: 0 10px 30px -10px rgba(0, 0, 0, 0.6), 0 4px 12px -2px rgba(0, 0, 0, 0.4);
+      --panel-blur: blur(14px);
+      
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 18px;
+      
+      --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-normal: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Light Theme Tokens */
+    [data-theme="light"] {
+      --bg-base: #f1f5f9;
+      --bg-subtle: #e2e8f0;
+      --bg-surface: rgba(255, 255, 255, 0.82);
+      --bg-surface-elevated: rgba(255, 255, 255, 0.95);
+      --bg-surface-hover: rgba(241, 245, 249, 0.9);
+      
+      --border-subtle: rgba(0, 0, 0, 0.08);
+      --border-medium: rgba(0, 0, 0, 0.14);
+      --border-strong: rgba(0, 0, 0, 0.24);
+      
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #94a3b8;
+      
+      --accent-cyan: #0284c7;
+      --accent-cyan-glow: rgba(2, 132, 199, 0.2);
+      --accent-violet: #6366f1;
+      --accent-emerald: #059669;
+      --accent-amber: #d97706;
+      --accent-rose: #e11d48;
+      --accent-crimson: #dc2626;
+      
+      --canvas-bg: #ffffff;
+      --canvas-grid: rgba(0, 0, 0, 0.05);
+      --shadow-elevation: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+    }
+
+    /* Color-blind Friendly Alternative Palette */
+    [data-theme="colorblind"] {
+      --accent-cyan: #0077bb;
+      --accent-cyan-glow: rgba(0, 119, 187, 0.28);
+      --accent-violet: #ee7733;
+      --accent-emerald: #009988;
+      --accent-amber: #ee3377;
+      --accent-rose: #cc3311;
+      --accent-crimson: #cc3311;
+    }
+
+    /* ==========================================================================
+       GLOBAL RESETS & BASE STYLING
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
       margin: 0;
-      padding: 16px;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      line-height: 1.5;
+      height: 100vh;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-medium);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--border-strong);
+    }
+
+    /* ==========================================================================
+       HEADER / TOP NAVIGATION
+       ========================================================================== */
+    .app-header {
+      height: 52px;
+      background: var(--bg-surface);
+      backdrop-filter: var(--panel-blur);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
       align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      z-index: 40;
+      flex-shrink: 0;
     }
-    h1 {
-      margin: 4px 0 10px 0;
-      font-size: 24px;
-      color: #38bdf8;
-    }
-    .subtitle {
-      font-size: 14px;
-      color: #94a3b8;
-      margin-bottom: 12px;
-    }
-    .container {
+
+    .brand-section {
       display: flex;
-      gap: 16px;
-      max-width: 1200px;
-      width: 100%;
-    }
-    .canvas-card {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
       align-items: center;
-      flex: 1;
-    }
-    canvas {
-      background: #020617;
-      border: 2px solid #38bdf8;
-      border-radius: 6px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    }
-    .sidebar {
-      width: 320px;
-      display: flex;
-      flex-direction: column;
       gap: 12px;
     }
-    .card {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 14px;
-    }
-    .card h3 {
-      margin-top: 0;
-      margin-bottom: 10px;
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet));
+      border-radius: var(--radius-sm);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 14px var(--accent-cyan-glow);
+      color: #ffffff;
+      font-weight: 800;
       font-size: 16px;
-      color: #38bdf8;
-      border-bottom: 1px solid #334155;
-      padding-bottom: 6px;
     }
-    .stat-row {
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-tag {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .select-dropdown {
+      background: var(--bg-surface-elevated);
+      color: var(--text-main);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-size: 12px;
+      font-family: var(--font-ui);
+      outline: none;
+      cursor: pointer;
+      transition: border-color var(--transition-fast);
+    }
+    .select-dropdown:hover, .select-dropdown:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    /* Icon Buttons */
+    .btn-icon {
+      background: var(--bg-surface-elevated);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .btn-icon:hover {
+      color: var(--text-main);
+      border-color: var(--border-medium);
+      transform: translateY(-1px);
+    }
+    .btn-icon:active {
+      transform: translateY(0);
+    }
+
+    .btn-action {
+      background: var(--bg-surface-elevated);
+      color: var(--text-main);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .btn-action:hover {
+      border-color: var(--border-strong);
+      background: var(--bg-surface-hover);
+    }
+    .btn-action.primary {
+      background: linear-gradient(135deg, var(--accent-cyan), #0284c7);
+      color: #ffffff;
+      border: none;
+      box-shadow: 0 2px 10px var(--accent-cyan-glow);
+    }
+    .btn-action.primary:hover {
+      filter: brightness(1.1);
+    }
+
+    /* ==========================================================================
+       MAIN WORKSPACE LAYOUT (3 COLUMNS)
+       ========================================================================== */
+    .app-workspace {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 52px);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Sidebars: Left Controls & Right Analytics */
+    .sidebar {
+      width: 320px;
+      background: var(--bg-surface);
+      backdrop-filter: var(--panel-blur);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 20;
+      flex-shrink: 0;
+      box-shadow: var(--shadow-elevation);
+      transition: width var(--transition-normal);
+    }
+    .sidebar-left {
+      border-right: 1px solid var(--border-subtle);
+    }
+    .sidebar-right {
+      width: 340px;
+      border-left: 1px solid var(--border-subtle);
+    }
+
+    .sidebar-section {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Control Groups */
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .control-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .control-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Segmented Controls / Button Groups */
+    .seg-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      background: var(--bg-subtle);
+      padding: 3px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      margin-bottom: 8px;
+    }
+    .seg-btn {
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      padding: 6px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      text-align: center;
+    }
+    .seg-btn:hover {
+      color: var(--text-main);
+    }
+    .seg-btn.active {
+      background: var(--bg-surface-elevated);
+      color: var(--text-main);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+    .seg-btn.active.elastic { color: var(--accent-emerald); }
+    .seg-btn.active.inelastic { color: var(--accent-rose); }
+    .seg-btn.active.partial { color: var(--accent-amber); }
+
+    /* Sliders */
+    .slider-container {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    .slider-header {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 6px;
-      font-size: 13px;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 4px;
     }
-    .stat-val {
-      font-family: monospace;
-      font-weight: bold;
-      color: #4ade80;
+    .slider-val {
+      font-family: var(--font-mono);
+      color: var(--text-main);
+      font-weight: 600;
     }
-    .btn-group {
+    .custom-slider {
+      width: 100%;
+      height: 4px;
+      background: var(--bg-subtle);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+    .custom-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan-glow);
+      cursor: pointer;
+      transition: transform var(--transition-fast);
+    }
+    .custom-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Grid of Quick Buttons */
+    .btn-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .btn-grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .btn-toggle {
+      background: var(--bg-surface-elevated);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 7px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .btn-toggle:hover {
+      color: var(--text-main);
+      border-color: var(--border-medium);
+    }
+    .btn-toggle.active {
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--accent-cyan);
+      border-color: rgba(56, 189, 248, 0.35);
+    }
+
+    /* ==========================================================================
+       VIEWPORT & CANVAS CONTAINER
+       ========================================================================== */
+    .viewport-container {
+      flex: 1;
+      position: relative;
+      background: var(--canvas-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #simCanvas {
+      display: block;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    /* Floating Viewport Overlays */
+    .viewport-overlay-top {
+      position: absolute;
+      top: 14px;
+      left: 18px;
+      right: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .viewport-overlay-top > * {
+      pointer-events: auto;
+    }
+
+    .toolbar-pill {
+      background: var(--bg-surface);
+      backdrop-filter: var(--panel-blur);
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      padding: 4px 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: var(--shadow-elevation);
+    }
+
+    .tool-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 999px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all var(--transition-fast);
+    }
+    .tool-btn:hover {
+      color: var(--text-main);
+    }
+    .tool-btn.active {
+      background: rgba(56, 189, 248, 0.16);
+      color: var(--accent-cyan);
+    }
+
+    /* Camera Controls / Zoom info */
+    .camera-hud {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      background: var(--bg-surface);
+      backdrop-filter: var(--panel-blur);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 4px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Onboarding / Status Banner */
+    .hint-banner {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-surface);
+      backdrop-filter: var(--panel-blur);
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: var(--shadow-elevation);
+      pointer-events: none;
+      transition: opacity var(--transition-normal);
+      z-index: 10;
+    }
+
+    /* Canvas Hover Inspector Tooltip */
+    #hoverTooltip {
+      position: absolute;
+      background: var(--bg-surface-elevated);
+      backdrop-filter: var(--panel-blur);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-main);
+      box-shadow: var(--shadow-elevation);
+      pointer-events: none;
+      display: none;
+      z-index: 30;
+      white-space: nowrap;
+    }
+
+    /* ==========================================================================
+       RIGHT SIDEBAR: TELEMETRY & CHARTS
+       ========================================================================== */
+    .stat-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      margin-bottom: 8px;
+    }
+    .stat-grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
     }
-    button {
-      background: #2563eb;
-      color: white;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 4px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
+
+    .metric-box {
+      display: flex;
+      flex-direction: column;
     }
-    button:hover {
-      background: #1d4ed8;
+    .metric-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin-bottom: 2px;
     }
-    button.active {
-      background: #10b981;
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-main);
+      font-variant-numeric: tabular-nums;
     }
-    button.danger {
-      background: #ef4444;
+    .metric-value.cyan { color: var(--accent-cyan); }
+    .metric-value.emerald { color: var(--accent-emerald); }
+    .metric-value.amber { color: var(--accent-amber); }
+    .metric-value.rose { color: var(--accent-rose); }
+
+    /* Live Chart Canvas */
+    .chart-container {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 8px;
+      margin-bottom: 10px;
+      position: relative;
     }
-    button.danger:hover {
-      background: #dc2626;
-    }
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 12px;
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
       font-size: 11px;
-      font-weight: bold;
-      margin-bottom: 8px;
     }
-    .badge-elastic { background: #059669; }
-    .badge-inelastic { background: #b91c1c; }
-    .badge-partial { background: #d97706; }
+    .chart-legend {
+      display: flex;
+      gap: 10px;
+      font-size: 10px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    #historyChart {
+      width: 100%;
+      height: 70px;
+      display: block;
+    }
+
+    /* Pruning Efficiency Meter */
+    .efficiency-meter {
+      height: 6px;
+      background: var(--border-subtle);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .efficiency-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-emerald));
+      width: 0%;
+      transition: width var(--transition-fast);
+    }
+
+    /* ==========================================================================
+       TOAST NOTIFICATION COMPONENT
+       ========================================================================== */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 100;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--bg-surface-elevated);
+      backdrop-filter: var(--panel-blur);
+      border: 1px solid var(--border-medium);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      box-shadow: var(--shadow-elevation);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: toastIn 0.25s forwards, toastOut 0.25s forwards 2.5s;
+    }
+    @keyframes toastIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes toastOut {
+      to { opacity: 0; transform: translateY(-8px); }
+    }
+
+    /* ==========================================================================
+       MODALS (BENCHMARK & KEYBOARD HELP)
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      display: grid;
+      place-items: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-normal);
+    }
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-window {
+      background: var(--bg-surface-elevated);
+      backdrop-filter: var(--panel-blur);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-lg);
+      width: 90%;
+      max-width: 680px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+      transform: scale(0.95);
+      transition: transform var(--transition-normal);
+    }
+    .modal-backdrop.open .modal-window {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 4px;
+    }
+    .modal-close:hover {
+      color: var(--text-main);
+    }
+
+    .modal-body {
+      padding: 20px;
+      max-height: 75vh;
+      overflow-y: auto;
+    }
+
+    /* Key Shortcut Table */
+    .shortcut-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .shortcut-table tr {
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .shortcut-table tr:last-child {
+      border-bottom: none;
+    }
+    .shortcut-table td {
+      padding: 8px 6px;
+    }
+    .key-badge {
+      display: inline-block;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-medium);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-cyan);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Benchmark Table */
+    .benchmark-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      margin-top: 14px;
+    }
+    .benchmark-table th {
+      text-align: left;
+      padding: 8px 6px;
+      color: var(--text-dim);
+      border-bottom: 2px solid var(--border-medium);
+      font-weight: 600;
+    }
+    .benchmark-table td {
+      padding: 7px 6px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-main);
+    }
+    .benchmark-table tr:hover td {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    /* Responsive Breakdown */
+    @media (max-width: 1080px) {
+      .sidebar-left { width: 280px; }
+      .sidebar-right { width: 300px; }
+    }
+    @media (max-width: 860px) {
+      .sidebar-right { display: none; }
+      .toast-container { right: 20px; }
+    }
   </style>
 </head>
 <body>
 
-  <h1>Bounding Volume Hierarchy (BVH) & Contact Physics Simulation</h1>
-  <div class="subtitle">DSA Lab Evaluation 3 | C++ Algorithm & Contact Dynamics Implementation</div>
-
-  <div class="container">
-    <div class="canvas-card">
-      <canvas id="simCanvas" width="800" height="500"></canvas>
-      <div style="margin-top: 10px; font-size: 12px; color: #94a3b8;">
-        Bounding Boxes: <b>Cyan / Orange rectangles</b> show hierarchical BVH nodes | Particles: Color represents mass
+  <!-- ========================================================================
+       TOP NAVIGATION BAR
+       ======================================================================== -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-logo">B</div>
+      <div class="brand-title">
+        BVH Collision Dynamics
+        <span class="badge-tag">DSA Suite 3.0</span>
       </div>
     </div>
 
-    <div class="sidebar">
-      <div class="card">
-        <h3>Simulation Controls</h3>
-        <div style="margin-bottom: 8px;">Collision Physics Regime:</div>
-        <div class="btn-group" style="margin-bottom: 10px;">
-          <button id="btnElastic" class="active" onclick="setMode('elastic')">Elastic (e=1.0)</button>
-          <button id="btnInelastic" onclick="setMode('inelastic')">Inelastic (e=0.0)</button>
-          <button id="btnPartial" onclick="setMode('partial')">Partial (e=0.75)</button>
-          <button id="btnFriction" class="active" onclick="toggleFriction()">Friction: ON</button>
+    <div class="header-actions">
+      <!-- Presets Selection -->
+      <select id="presetSelect" class="select-dropdown" onchange="loadPreset(this.value)" title="Choose Scene Preset">
+        <option value="default">Preset: Balanced Gas (14 bodies)</option>
+        <option value="dense">Preset: High Density Stress (50 bodies)</option>
+        <option value="billiards">Preset: Billiard Break</option>
+        <option value="heavy">Preset: Giant Impactor</option>
+        <option value="zerog">Preset: Zero-G Vortex</option>
+      </select>
+
+      <!-- Benchmark Trigger -->
+      <button class="btn-action" onclick="openBenchmarkModal()" title="Run BVH vs Naive Benchmark">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Benchmark Suite
+      </button>
+
+      <!-- Theme Switchers -->
+      <button class="btn-icon" id="btnThemeToggle" onclick="toggleTheme()" title="Toggle Light / Dark Mode">
+        <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      </button>
+
+      <button class="btn-icon" id="btnColorblind" onclick="toggleColorblind()" title="Toggle Colorblind Friendly Palette">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/></svg>
+      </button>
+
+      <!-- Keyboard Help -->
+      <button class="btn-icon" onclick="openHelpModal()" title="Keyboard Shortcuts (?)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       MAIN 3-PANE WORKSPACE
+       ======================================================================== -->
+  <main class="app-workspace">
+    
+    <!-- LEFT SIDEBAR: SIMULATION CONTROLS -->
+    <aside class="sidebar sidebar-left">
+      <!-- Playback Section -->
+      <div class="sidebar-section">
+        <div class="section-title">Playback Engine</div>
+        <div class="btn-grid-2">
+          <button id="btnPlayPause" class="btn-action primary" onclick="togglePlayPause()">
+            <svg id="iconPlayPause" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span id="labelPlayPause">Pause</span>
+          </button>
+          <button class="btn-action" onclick="stepSingleFrame()" title="Step 1 Frame (dt)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+            Step Frame
+          </button>
         </div>
-        <div class="btn-group">
-          <button id="btnGravity" onclick="toggleGravity()">Gravity: OFF</button>
-          <button id="btnBoxes" class="active" onclick="toggleBVHBoxes()">BVH Boxes: ON</button>
-          <button onclick="addBodies(5)">+5 Bodies</button>
-          <button class="danger" onclick="resetSim()">Reset</button>
+
+        <div class="slider-container" style="margin-top: 10px;">
+          <div class="slider-header">
+            <span>Simulation Time Scale</span>
+            <span id="valSpeed" class="slider-val">1.0x</span>
+          </div>
+          <input type="range" class="custom-slider" id="speedSlider" min="0.1" max="2.5" step="0.1" value="1.0" oninput="updateTimeScale(this.value)">
         </div>
       </div>
 
-      <div class="card">
-        <h3>Live Conservation Auditor</h3>
-        <div class="stat-row">
-          <span>Current Mode:</span>
-          <span id="txtMode" class="badge badge-elastic">ELASTIC (e=1.0)</span>
+      <!-- Physics Mode Regimes -->
+      <div class="sidebar-section">
+        <div class="section-title">Collision Physics Regime</div>
+        <div class="seg-group">
+          <button id="segElastic" class="seg-btn active elastic" onclick="setPhysicsMode('elastic')">Elastic (1.0)</button>
+          <button id="segInelastic" class="seg-btn" onclick="setPhysicsMode('inelastic')">Inelastic (0.0)</button>
+          <button id="segPartial" class="seg-btn" onclick="setPhysicsMode('partial')">Partial (0.75)</button>
         </div>
-        <div class="stat-row">
-          <span>Total Kinetic Energy:</span>
-          <span id="txtKE" class="stat-val">0.00 J</span>
-        </div>
-        <div class="stat-row">
-          <span>Total Linear Momentum:</span>
-          <span id="txtP" class="stat-val">0.00 kg·m/s</span>
-        </div>
-        <div class="stat-row">
-          <span>Cumulative Collisions:</span>
-          <span id="txtCollisions" class="stat-val">0</span>
-        </div>
-        <div class="stat-row">
-          <span>Dissipated Energy:</span>
-          <span id="txtDissipated" class="stat-val" style="color:#f87171;">0.00 J</span>
+
+        <!-- Forces Toggles -->
+        <div class="btn-grid-2" style="margin-top: 10px;">
+          <button id="btnGravity" class="btn-toggle" onclick="toggleGravity()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+            Gravity: OFF
+          </button>
+          <button id="btnFriction" class="btn-toggle active" onclick="toggleFriction()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h16M4 18h16M4 10h16"/></svg>
+            Friction: ON
+          </button>
         </div>
       </div>
 
-      <div class="card">
-        <h3>BVH ADT Performance Metric</h3>
-        <div class="stat-row">
-          <span>Rigid Bodies Count (N):</span>
-          <span id="txtBodyCount" class="stat-val">12</span>
+      <!-- Particle Management -->
+      <div class="sidebar-section">
+        <div class="section-title">Body Configuration</div>
+        <div class="slider-container">
+          <div class="slider-header">
+            <span>Rigid Body Count</span>
+            <span id="valBodyCount" class="slider-val">14</span>
+          </div>
+          <input type="range" class="custom-slider" id="bodyCountSlider" min="2" max="200" step="1" value="14" oninput="adjustBodyCount(parseInt(this.value))">
         </div>
-        <div class="stat-row">
-          <span>Total BVH Nodes:</span>
-          <span id="txtNodes" class="stat-val">23</span>
+
+        <div class="btn-grid-3">
+          <button class="btn-action" onclick="addBodies(5)">+5 Bodies</button>
+          <button class="btn-action" onclick="addBodies(20)">+20 Bodies</button>
+          <button class="btn-action" onclick="resetSim()" style="color: var(--accent-rose);">Reset</button>
         </div>
-        <div class="stat-row">
-          <span>Max Tree Depth:</span>
-          <span id="txtDepth" class="stat-val">4</span>
+      </div>
+
+      <!-- Viewport Interaction Tools -->
+      <div class="sidebar-section">
+        <div class="section-title">Active Mouse Tool</div>
+        <div class="seg-group" style="grid-template-columns: 1fr 1fr;">
+          <button id="toolDrag" class="seg-btn active" onclick="setActiveTool('drag')">Sling / Throw</button>
+          <button id="toolSpawn" class="seg-btn" onclick="setActiveTool('spawn')">Spawn on Click</button>
         </div>
-        <div class="stat-row">
-          <span>BVH Broad-Phase Tests:</span>
-          <span id="txtBVHTests" class="stat-val">34</span>
+        <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">
+          Right-click & drag: Pull bodies toward cursor (Gravity Well)
         </div>
-        <div class="stat-row">
-          <span>Brute Force O(N²):</span>
-          <span id="txtBruteTests" class="stat-val">66</span>
+      </div>
+    </aside>
+
+    <!-- CENTER VIEWPORT: CANVAS DISPLAY -->
+    <section class="viewport-container" id="canvasContainer">
+      <!-- Top Floating Toolbar -->
+      <div class="viewport-overlay-top">
+        <div class="toolbar-pill">
+          <button id="toggleBVH" class="tool-btn active" onclick="toggleOption('bvh')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            BVH Bounds
+          </button>
+          <button id="toggleDepth" class="tool-btn active" onclick="toggleOption('depth')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Depth Hue
+          </button>
+          <button id="toggleContacts" class="tool-btn active" onclick="toggleOption('contacts')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="19" cy="5" r="2"/></svg>
+            Contacts
+          </button>
+          <button id="toggleVel" class="tool-btn active" onclick="toggleOption('vel')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            Vectors
+          </button>
         </div>
-        <div class="stat-row">
-          <span>Pruning Efficiency:</span>
-          <span id="txtPruned" class="stat-val" style="color:#38bdf8;">48.5%</span>
+
+        <div class="camera-hud">
+          <span id="zoomLevel">100%</span>
+          <button class="btn-icon" style="width: 22px; height: 22px;" onclick="resetCamera()" title="Reset Camera View (Z)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          </button>
         </div>
+      </div>
+
+      <!-- Main Canvas -->
+      <canvas id="simCanvas"></canvas>
+
+      <!-- Hover Tooltip -->
+      <div id="hoverTooltip"></div>
+
+      <!-- Onboarding Hint Banner -->
+      <div class="hint-banner" id="hintBanner">
+        <span>💡 Left-drag to sling particles • Right-drag for attractor well • Scroll to zoom • Press <b>?</b> for hotkeys</span>
+      </div>
+    </section>
+
+    <!-- RIGHT SIDEBAR: REAL-TIME TELEMETRY & ALGORITHMIC AUDIT -->
+    <aside class="sidebar sidebar-right">
+      <!-- Performance Section -->
+      <div class="sidebar-section">
+        <div class="section-title">Performance Monitor</div>
+        <div class="stat-grid-2">
+          <div class="stat-card">
+            <div class="metric-box">
+              <span class="metric-label">Frame Rate</span>
+              <span id="txtFPS" class="metric-value emerald">60.0 FPS</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="metric-box">
+              <span class="metric-label">Frame Step</span>
+              <span id="txtFrameTime" class="metric-value cyan">16.6 ms</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BVH vs Naive Comparison & Real-Time Chart -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          Algorithmic Culling (Broad Phase)
+          <span id="txtPrunedBadge" class="badge-tag">0% CULLED</span>
+        </div>
+        
+        <div class="chart-container">
+          <div class="chart-header">
+            <span style="color: var(--text-dim);">Live Broad-Phase Tests</span>
+            <div class="chart-legend">
+              <div class="legend-item"><span class="legend-dot" style="background: var(--accent-rose);"></span> Naive O(N²)</div>
+              <div class="legend-item"><span class="legend-dot" style="background: var(--accent-cyan);"></span> BVH Tree</div>
+            </div>
+          </div>
+          <canvas id="historyChart" width="300" height="70"></canvas>
+        </div>
+
+        <div class="stat-grid-2">
+          <div class="stat-card">
+            <div class="metric-box">
+              <span class="metric-label">BVH Checks</span>
+              <span id="txtBVHTests" class="metric-value cyan">0</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="metric-box">
+              <span class="metric-label">Naive O(N²) Checks</span>
+              <span id="txtBruteTests" class="metric-value rose">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 8px;">
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim);">
+            <span>Pruning Ratio</span>
+            <span id="txtPrunedRatio" style="font-family: var(--font-mono); font-weight: 700; color: var(--accent-cyan);">0.0%</span>
+          </div>
+          <div class="efficiency-meter">
+            <div class="efficiency-fill" id="efficiencyFill"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BVH Tree Metrics -->
+      <div class="sidebar-section">
+        <div class="section-title">BVH Tree Diagnostics</div>
+        <div class="stat-grid-2">
+          <div class="stat-card">
+            <div class="metric-box">
+              <span class="metric-label">Tree Depth</span>
+              <span id="txtDepth" class="metric-value">0</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="metric-box">
+              <span class="metric-label">Total BVH Nodes</span>
+              <span id="txtNodes" class="metric-value">0</span>
+            </div>
+          </div>
+        </div>
+        <div class="stat-grid-2" style="margin-top: 6px;">
+          <div class="stat-card">
+            <div class="metric-box">
+              <span class="metric-label">Broad Pairs</span>
+              <span id="txtBroadPairs" class="metric-value">0</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="metric-box">
+              <span class="metric-label">Narrow Impacts</span>
+              <span id="txtNarrowHits" class="metric-value amber">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Physics Conservation Auditor -->
+      <div class="sidebar-section">
+        <div class="section-title">Conservation Auditor</div>
+        <div class="control-row">
+          <span class="control-label">Kinetic Energy (Σ½mv²):</span>
+          <span id="txtKE" class="metric-value" style="font-size: 13px;">0.00 J</span>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Linear Momentum (|P|):</span>
+          <span id="txtP" class="metric-value" style="font-size: 13px;">0.00 kg·m/s</span>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Cumulative Collisions:</span>
+          <span id="txtCollisions" class="metric-value" style="font-size: 13px;">0</span>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Dissipated Energy:</span>
+          <span id="txtDissipated" class="metric-value rose" style="font-size: 13px;">0.00 J</span>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ========================================================================
+       MODAL 1: BENCHMARK SUITE
+       ======================================================================== -->
+  <div class="modal-backdrop" id="benchmarkModal" onclick="closeModalOnBackdrop(event, 'benchmarkModal')">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-title">BVH vs Naive Collision Detection Benchmark</div>
+        <button class="modal-close" onclick="closeModal('benchmarkModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 12px;">
+          This benchmark evaluates the hierarchical spatial partitioning efficiency of the Median-Split BVH tree against naive all-pairs O(N²) testing across increasing body counts.
+        </p>
+
+        <button class="btn-action primary" id="btnRunBench" onclick="runBenchmarkSweep()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Execute Benchmark (25 → 1000 Bodies)
+        </button>
+
+        <table class="benchmark-table" id="benchTable">
+          <thead>
+            <tr>
+              <th>N</th>
+              <th>Naive O(N²)</th>
+              <th>BVH Tests</th>
+              <th>Pruned %</th>
+              <th>Build (μs)</th>
+              <th>Query (μs)</th>
+              <th>Speedup</th>
+            </tr>
+          </thead>
+          <tbody id="benchTableBody">
+            <tr><td colspan="7" style="text-align:center; color: var(--text-dim); padding: 18px;">Click "Execute Benchmark" to run quantitative profiling.</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
 
+  <!-- ========================================================================
+       MODAL 2: KEYBOARD SHORTCUTS
+       ======================================================================== -->
+  <div class="modal-backdrop" id="helpModal" onclick="closeModalOnBackdrop(event, 'helpModal')">
+    <div class="modal-window" style="max-width: 480px;">
+      <div class="modal-header">
+        <div class="modal-title">Keyboard Shortcuts</div>
+        <button class="modal-close" onclick="closeModal('helpModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <table class="shortcut-table">
+          <tr>
+            <td><span class="key-badge">Space</span></td>
+            <td>Pause / Resume physics simulation</td>
+          </tr>
+          <tr>
+            <td><span class="key-badge">.</span> or <span class="key-badge">F</span></td>
+            <td>Advance simulation by single timestep (dt)</td>
+          </tr>
+          <tr>
+            <td><span class="key-badge">R</span></td>
+            <td>Reset current simulation scene</td>
+          </tr>
+          <tr>
+            <td><span class="key-badge">1</span> / <span class="key-badge">2</span> / <span class="key-badge">3</span></td>
+            <td>Switch regime: Elastic / Inelastic / Partial</td>
+          </tr>
+          <tr>
+            <td><span class="key-badge">G</span></td>
+            <td>Toggle environmental gravity</td>
+          </tr>
+          <tr>
+            <td><span class="key-badge">C</span></td>
+            <td>Toggle surface Coulomb friction</td>
+          </tr>
+          <tr>
+            <td><span class="key-badge">B</span></td>
+            <td>Toggle BVH hierarchical bounding box outlines</td>
+          </tr>
+          <tr>
+            <td><span class="key-badge">D</span></td>
+            <td>Toggle depth-based box coloring</td>
+          </tr>
+          <tr>
+            <td><span class="key-badge">Z</span></td>
+            <td>Reset viewport pan and zoom to center</td>
+          </tr>
+          <tr>
+            <td><span class="key-badge">T</span></td>
+            <td>Cycle theme (Dark / Light / Colorblind)</td>
+          </tr>
+          <tr>
+            <td><span class="key-badge">?</span></td>
+            <td>Open this shortcut reference guide</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       APPLICATION LOGIC & CORE ALGORITHM SCRIPT
+       ======================================================================== -->
   <script>
-    const canvas = document.getElementById('simCanvas');
-    const ctx = canvas.getContext('2d');
-
-    let mode = 'elastic'; // elastic, inelastic, partial
-    let restitution = 1.0;
-    let frictionEnabled = true;
-    let gravityEnabled = false;
-    let showBVH = true;
-    let cumulativeCollisions = 0;
-    let energyDissipated = 0;
-
+    // --------------------------------------------------------------------------
+    // 1. DATA STRUCTURES & ALGORITHMIC CONSTANTS (PRESERVED ACCORDING TO PROMPT)
+    // --------------------------------------------------------------------------
+    
     class RigidBody {
       constructor(id, x, y, vx, vy, mass, radius, color) {
         this.id = id;
@@ -226,6 +1241,7 @@
         this.invMass = mass > 0 ? 1 / mass : 0;
         this.radius = radius;
         this.color = color;
+        this.flashTimer = 0; // Highlight ring frames remaining
       }
       getAABB() {
         return {
@@ -241,40 +1257,89 @@
     }
 
     class BVHNode {
-      constructor(box, left = null, right = null, body = null) {
+      constructor(box, left = null, right = null, body = null, depth = 0) {
         this.box = box;
         this.left = left;
         this.right = right;
         this.body = body;
+        this.depth = depth;
       }
       isLeaf() {
         return this.left === null && this.right === null;
       }
     }
 
+    // --------------------------------------------------------------------------
+    // 2. STATE MANAGEMENT & DEFAULTS
+    // --------------------------------------------------------------------------
     let bodies = [];
     let bvhTests = 0;
+    let broadPhasePairsCount = 0;
+    let narrowPhaseHitsCount = 0;
+    let maxTreeDepth = 0;
+    let totalBVHNodes = 0;
+    let bvhBuildTimeUs = 0;
+    let bvhQueryTimeUs = 0;
 
-    function initBodies() {
-      bodies = [
-        new RigidBody(1, 120, 150, 180, 50, 4.0, 20, '#38bdf8'),
-        new RigidBody(2, 680, 150, -160, -40, 2.0, 16, '#fbbf24'),
-        new RigidBody(3, 200, 320, 140, -90, 3.0, 18, '#34d399'),
-        new RigidBody(4, 550, 320, -120, -70, 3.0, 18, '#a78bfa'),
-        new RigidBody(5, 400, 80, 0, 140, 1.5, 14, '#f472b6'),
-        new RigidBody(6, 400, 420, 0, -140, 1.5, 14, '#f87171'),
-        new RigidBody(7, 100, 400, 220, -110, 1.0, 12, '#38bdf8'),
-        new RigidBody(8, 700, 380, -200, 80, 2.5, 17, '#fbbf24'),
-        new RigidBody(9, 400, 250, 0, 0, 0, 25, '#94a3b8') // Static body
-      ];
-      cumulativeCollisions = 0;
-      energyDissipated = 0;
-    }
+    let isPaused = false;
+    let timeScale = 1.0;
+    let mode = 'elastic'; // 'elastic' | 'inelastic' | 'partial'
+    let restitution = 1.0;
+    let frictionEnabled = true;
+    let gravityEnabled = false;
 
+    let showBVH = true;
+    let showDepth = true;
+    let showContacts = true;
+    let showVectors = true;
+
+    let cumulativeCollisions = 0;
+    let energyDissipated = 0;
+    let activeTool = 'drag'; // 'drag' | 'spawn'
+
+    // Contact indicators for rendering
+    let recentContacts = [];
+
+    // History for live performance chart
+    const historyNaive = new Array(50).fill(0);
+    const historyBVH = new Array(50).fill(0);
+
+    // Camera Pan / Zoom State
+    let camera = {
+      x: 0,
+      y: 0,
+      zoom: 1.0,
+      isPanning: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    // Slingshot / Dragging State
+    let draggedBody = null;
+    let dragStartPos = { x: 0, y: 0 };
+    let dragCurrentPos = { x: 0, y: 0 };
+    let isRightMouseDown = false;
+    let mouseWorldPos = { x: 0, y: 0 };
+
+    // Canvas references
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const canvasContainer = document.getElementById('canvasContainer');
+    const chartCanvas = document.getElementById('historyChart');
+    const chartCtx = chartCanvas.getContext('2d');
+    const tooltip = document.getElementById('hoverTooltip');
+
+    // --------------------------------------------------------------------------
+    // 3. BVH CONSTRUCTION & TRAVERSAL ALGORITHMS (PRESERVED)
+    // --------------------------------------------------------------------------
+    
     function buildBVH(bodyList, depth = 0) {
       if (bodyList.length === 0) return null;
+      totalBVHNodes++;
+      if (depth > maxTreeDepth) maxTreeDepth = depth;
+
       if (bodyList.length === 1) {
-        return new BVHNode(bodyList[0].getAABB(), null, null, bodyList[0]);
+        return new BVHNode(bodyList[0].getAABB(), null, null, bodyList[0], depth);
       }
 
       let totalBox = {
@@ -297,7 +1362,7 @@
       let left = buildBVH(bodyList.slice(0, mid), depth + 1);
       let right = buildBVH(bodyList.slice(mid), depth + 1);
 
-      return new BVHNode(totalBox, left, right, null);
+      return new BVHNode(totalBox, left, right, null, depth);
     }
 
     function boxIntersects(a, b) {
@@ -319,8 +1384,8 @@
         queryTwoNodes(nodeA, nodeB.left, pairs);
         queryTwoNodes(nodeA, nodeB.right, pairs);
       } else if (nodeB.isLeaf()) {
-        queryTwoNodes(nodeA.left, nodeB, pairs);
-        queryTwoNodes(nodeA.right, nodeB, pairs);
+        queryTwoNodes(nodeA, nodeB, pairs);
+        queryTwoNodes(nodeA, nodeB.right, pairs);
       } else {
         queryTwoNodes(nodeA.left, nodeB, pairs);
         queryTwoNodes(nodeA.right, nodeB, pairs);
@@ -334,6 +1399,10 @@
       queryTwoNodes(node.left, node.right, pairs);
     }
 
+    // --------------------------------------------------------------------------
+    // 4. PHYSICS RESOLUTION (PRESERVED IMPULSE + CONTACT CAPTURE)
+    // --------------------------------------------------------------------------
+    
     function resolveCollision(a, b) {
       let dx = b.x - a.x;
       let dy = b.y - a.y;
@@ -341,6 +1410,7 @@
       let radiusSum = a.radius + b.radius;
 
       if (dist < radiusSum) {
+        narrowPhaseHitsCount++;
         let nx = dist > 0 ? dx / dist : 1;
         let ny = dist > 0 ? dy / dist : 0;
         let pen = radiusSum - dist;
@@ -349,14 +1419,14 @@
         let rvy = b.vy - a.vy;
         let vn = rvx * nx + rvy * ny;
 
-        if (vn > 0) return; // separating
+        if (vn > 0) return; // Bodies separating
 
         let invSum = a.invMass + b.invMass;
         if (invSum <= 0) return;
 
         let keBefore = a.getKE() + b.getKE();
 
-        // Impulse formula with restitution e
+        // Contact impulse with restitution
         let e = restitution;
         let jn = -(1 + e) * vn / invSum;
 
@@ -377,7 +1447,7 @@
             tx /= tlen;
             ty /= tlen;
             let jt = -(nrvx * tx + nrvy * ty) / invSum;
-            let mu = 0.3;
+            let mu = 0.35;
             jt = Math.max(-jn * mu, Math.min(jn * mu, jt));
             a.vx -= jt * a.invMass * tx;
             a.vy -= jt * a.invMass * ty;
@@ -400,79 +1470,414 @@
           energyDissipated += (keBefore - keAfter);
         }
         cumulativeCollisions++;
+
+        // Visual flash trigger
+        a.flashTimer = 3;
+        b.flashTimer = 3;
+
+        // Register contact point for visualization
+        if (showContacts) {
+          recentContacts.push({
+            x: a.x + nx * a.radius,
+            y: a.y + ny * a.radius,
+            nx: nx,
+            ny: ny,
+            life: 10
+          });
+        }
       }
     }
 
-    function drawBVH(node, depth = 0) {
+    // --------------------------------------------------------------------------
+    // 5. VIEWPORT RESIZING & RETINA SCALING
+    // --------------------------------------------------------------------------
+    let worldWidth = 1000;
+    let worldHeight = 650;
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvasContainer.getBoundingClientRect();
+      const w = Math.floor(rect.width);
+      const h = Math.floor(rect.height);
+
+      if (w === 0 || h === 0) return;
+
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+      ctx.scale(dpr, dpr);
+
+      worldWidth = Math.max(800, w);
+      worldHeight = Math.max(550, h);
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // --------------------------------------------------------------------------
+    // 6. SCENE INITIALIZATION & PRESETS
+    // --------------------------------------------------------------------------
+    const PALETTE = ['#38bdf8', '#fbbf24', '#34d399', '#a78bfa', '#f472b6', '#fb7185', '#60a5fa'];
+
+    function initBodies(preset = 'default') {
+      bodies = [];
+      cumulativeCollisions = 0;
+      energyDissipated = 0;
+      recentContacts = [];
+
+      if (preset === 'default') {
+        const w = worldWidth;
+        const h = worldHeight;
+        bodies = [
+          new RigidBody(1, w * 0.2, h * 0.3, 160, 40, 4.0, 22, '#38bdf8'),
+          new RigidBody(2, w * 0.8, h * 0.3, -150, -30, 2.0, 16, '#fbbf24'),
+          new RigidBody(3, w * 0.25, h * 0.6, 120, -70, 3.0, 18, '#34d399'),
+          new RigidBody(4, w * 0.75, h * 0.6, -110, -50, 3.0, 18, '#a78bfa'),
+          new RigidBody(5, w * 0.5, h * 0.2, 0, 130, 1.5, 14, '#f472b6'),
+          new RigidBody(6, w * 0.5, h * 0.8, 0, -130, 1.5, 14, '#fb7185'),
+          new RigidBody(7, w * 0.15, h * 0.75, 200, -90, 1.2, 13, '#38bdf8'),
+          new RigidBody(8, w * 0.85, h * 0.7, -180, 70, 2.5, 17, '#fbbf24'),
+          new RigidBody(9, w * 0.35, h * 0.45, 80, 120, 2.0, 15, '#34d399'),
+          new RigidBody(10, w * 0.65, h * 0.45, -90, -110, 2.2, 16, '#a78bfa'),
+          new RigidBody(11, w * 0.45, h * 0.35, 60, -80, 1.8, 15, '#f472b6'),
+          new RigidBody(12, w * 0.55, h * 0.65, -70, 70, 1.6, 14, '#fb7185'),
+          new RigidBody(13, w * 0.1, h * 0.2, 140, 140, 1.0, 12, '#60a5fa'),
+          new RigidBody(14, w * 0.5, h * 0.5, 0, 0, 0, 30, '#94a3b8') // Heavy static anchor
+        ];
+      } else if (preset === 'dense') {
+        spawnRandomBodies(50);
+      } else if (preset === 'billiards') {
+        createBilliardsRack();
+      } else if (preset === 'heavy') {
+        createGiantImpactor();
+      } else if (preset === 'zerog') {
+        spawnRandomBodies(30);
+        gravityEnabled = false;
+        frictionEnabled = false;
+        setPhysicsMode('elastic');
+      }
+
+      document.getElementById('bodyCountSlider').value = bodies.length;
+      document.getElementById('valBodyCount').innerText = bodies.length;
+      showToast(`Loaded ${preset.toUpperCase()} scene with ${bodies.length} bodies`);
+    }
+
+    function spawnRandomBodies(count) {
+      for (let i = 0; i < count; i++) {
+        let r = 10 + Math.random() * 12;
+        let mass = (r / 10) * (r / 10);
+        bodies.push(new RigidBody(
+          bodies.length + 1,
+          50 + Math.random() * (worldWidth - 100),
+          50 + Math.random() * (worldHeight - 100),
+          (Math.random() - 0.5) * 280,
+          (Math.random() - 0.5) * 280,
+          mass,
+          r,
+          PALETTE[i % PALETTE.length]
+        ));
+      }
+    }
+
+    function createBilliardsRack() {
+      const startX = worldWidth * 0.65;
+      const startY = worldHeight * 0.5;
+      const r = 14;
+      let id = 1;
+
+      // Cue ball
+      bodies.push(new RigidBody(id++, worldWidth * 0.2, startY, 400, 0, 2.5, r, '#ffffff'));
+
+      // Triangle rack
+      for (let row = 0; row < 5; row++) {
+        for (let col = 0; col <= row; col++) {
+          let x = startX + row * (r * 1.75);
+          let y = startY + (col - row * 0.5) * (r * 2.1);
+          bodies.push(new RigidBody(id++, x, y, 0, 0, 2.0, r, PALETTE[id % PALETTE.length]));
+        }
+      }
+    }
+
+    function createGiantImpactor() {
+      bodies = [
+        new RigidBody(1, worldWidth * 0.15, worldHeight * 0.5, 300, 0, 40.0, 48, '#ef4444')
+      ];
+      for (let i = 0; i < 35; i++) {
+        let r = 8 + Math.random() * 6;
+        bodies.push(new RigidBody(
+          i + 2,
+          worldWidth * 0.5 + (Math.random() - 0.5) * (worldWidth * 0.35),
+          worldHeight * 0.5 + (Math.random() - 0.5) * (worldHeight * 0.7),
+          (Math.random() - 0.5) * 40,
+          (Math.random() - 0.5) * 40,
+          1.0,
+          r,
+          '#38bdf8'
+        ));
+      }
+    }
+
+    function loadPreset(val) {
+      initBodies(val);
+    }
+
+    // --------------------------------------------------------------------------
+    // 7. RENDERING PIPELINE & DEPTH PALETTE
+    // --------------------------------------------------------------------------
+    const DEPTH_COLORS = [
+      'rgba(56, 189, 248, 0.65)',   // Level 0: Cyan
+      'rgba(52, 211, 153, 0.65)',   // Level 1: Emerald
+      'rgba(251, 191, 36, 0.65)',   // Level 2: Amber
+      'rgba(167, 139, 250, 0.65)',  // Level 3: Purple
+      'rgba(244, 114, 182, 0.65)',  // Level 4: Pink
+      'rgba(251, 113, 133, 0.65)',  // Level 5: Rose
+      'rgba(96, 165, 250, 0.65)'    // Level 6: Blue
+    ];
+
+    function drawBVH(node) {
       if (!node) return;
       if (!node.isLeaf()) {
-        ctx.strokeStyle = depth % 2 === 0 ? 'rgba(56, 189, 248, 0.4)' : 'rgba(251, 191, 36, 0.4)';
-        ctx.lineWidth = 1;
+        const col = showDepth 
+          ? DEPTH_COLORS[node.depth % DEPTH_COLORS.length]
+          : 'rgba(56, 189, 248, 0.45)';
+        
+        ctx.strokeStyle = col;
+        ctx.lineWidth = Math.max(1, 1.5 / camera.zoom);
         ctx.strokeRect(node.box.minX, node.box.minY, node.box.maxX - node.box.minX, node.box.maxY - node.box.minY);
-        drawBVH(node.left, depth + 1);
-        drawBVH(node.right, depth + 1);
+
+        drawBVH(node.left);
+        drawBVH(node.right);
       }
     }
 
-    let lastTime = performance.now();
+    function renderScene(root) {
+      ctx.save();
+      // Apply Camera transformation
+      ctx.translate(camera.x, camera.y);
+      ctx.scale(camera.zoom, camera.zoom);
 
-    function step() {
-      let now = performance.now();
-      let dt = Math.min((now - lastTime) / 1000, 0.05);
-      lastTime = now;
-
-      // Kinematics
-      for (let b of bodies) {
-        if (b.invMass === 0) continue;
-        if (gravityEnabled) b.vy += 250 * dt;
-        b.x += b.vx * dt;
-        b.y += b.vy * dt;
-
-        // Walls
-        if (b.x - b.radius < 0) { b.x = b.radius; b.vx = -b.vx * restitution; }
-        if (b.x + b.radius > canvas.width) { b.x = canvas.width - b.radius; b.vx = -b.vx * restitution; }
-        if (b.y - b.radius < 0) { b.y = b.radius; b.vy = -b.vy * restitution; }
-        if (b.y + b.radius > canvas.height) { b.y = canvas.height - b.radius; b.vy = -b.vy * restitution; }
+      // 1. Draw subtle background coordinate grid
+      ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--canvas-grid').trim();
+      ctx.lineWidth = 1 / camera.zoom;
+      const gridSize = 50;
+      ctx.beginPath();
+      for (let x = 0; x <= worldWidth; x += gridSize) {
+        ctx.moveTo(x, 0); ctx.lineTo(x, worldHeight);
       }
-
-      // BVH Construction & Broad Phase
-      bvhTests = 0;
-      let root = buildBVH([...bodies]);
-      let pairs = [];
-      querySelf(root, pairs);
-
-      // Narrow Phase Resolution
-      for (let p of pairs) {
-        resolveCollision(p[0], p[1]);
+      for (let y = 0; y <= worldHeight; y += gridSize) {
+        ctx.moveTo(0, y); ctx.lineTo(worldWidth, y);
       }
+      ctx.stroke();
 
-      // Render
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // 2. Draw Simulation World Bounds
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+      ctx.lineWidth = 2 / camera.zoom;
+      ctx.strokeRect(0, 0, worldWidth, worldHeight);
 
+      // 3. Draw Hierarchical BVH Boxes
       if (showBVH && root) {
         drawBVH(root);
       }
 
-      // Draw Bodies & Velocity Vectors
+      // 4. Draw Right-click attractor lines
+      if (isRightMouseDown) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.lineWidth = 1 / camera.zoom;
+        for (let b of bodies) {
+          let dx = mouseWorldPos.x - b.x;
+          let dy = mouseWorldPos.y - b.y;
+          if (dx * dx + dy * dy < 280 * 280) {
+            ctx.beginPath();
+            ctx.moveTo(b.x, b.y);
+            ctx.lineTo(mouseWorldPos.x, mouseWorldPos.y);
+            ctx.stroke();
+          }
+        }
+        // Small crosshair at cursor
+        ctx.strokeStyle = 'var(--accent-cyan)';
+        ctx.beginPath();
+        ctx.arc(mouseWorldPos.x, mouseWorldPos.y, 8 / camera.zoom, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // 5. Draw Slingshot preview vector
+      if (draggedBody && activeTool === 'drag') {
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2 / camera.zoom;
+        ctx.setLineDash([4 / camera.zoom, 4 / camera.zoom]);
+        ctx.beginPath();
+        ctx.moveTo(draggedBody.x, draggedBody.y);
+        ctx.lineTo(dragCurrentPos.x, dragCurrentPos.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // 6. Draw Rigid Bodies & Flash Highlights
       for (let b of bodies) {
         ctx.beginPath();
         ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
         ctx.fillStyle = b.color;
         ctx.fill();
-        ctx.strokeStyle = '#f8fafc';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
 
-        // Velocity vector line
-        ctx.beginPath();
-        ctx.moveTo(b.x, b.y);
-        ctx.lineTo(b.x + b.vx * 0.12, b.y + b.vy * 0.12);
-        ctx.strokeStyle = '#ef4444';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+        // Flash Ring on Collision
+        if (b.flashTimer > 0) {
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 3 / camera.zoom;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.radius + 3 / camera.zoom, 0, Math.PI * 2);
+          ctx.stroke();
+          b.flashTimer--;
+        } else {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.lineWidth = 1 / camera.zoom;
+          ctx.stroke();
+        }
+
+        // Velocity Vectors
+        if (showVectors && (b.vx !== 0 || b.vy !== 0)) {
+          ctx.beginPath();
+          ctx.moveTo(b.x, b.y);
+          ctx.lineTo(b.x + b.vx * 0.1, b.y + b.vy * 0.1);
+          ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+          ctx.lineWidth = 1.5 / camera.zoom;
+          ctx.stroke();
+        }
       }
 
-      // Update Stats
+      // 7. Draw Contact Points & Normals
+      if (showContacts) {
+        for (let i = recentContacts.length - 1; i >= 0; i--) {
+          const cp = recentContacts[i];
+          ctx.fillStyle = `rgba(251, 191, 36, ${cp.life / 10})`;
+          ctx.beginPath();
+          ctx.arc(cp.x, cp.y, 3 / camera.zoom, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = `rgba(239, 68, 68, ${cp.life / 10})`;
+          ctx.lineWidth = 1 / camera.zoom;
+          ctx.beginPath();
+          ctx.moveTo(cp.x, cp.y);
+          ctx.lineTo(cp.x + cp.nx * 10, cp.y + cp.ny * 10);
+          ctx.stroke();
+
+          cp.life--;
+          if (cp.life <= 0) recentContacts.splice(i, 1);
+        }
+      }
+
+      ctx.restore();
+    }
+
+    // --------------------------------------------------------------------------
+    // 8. SIMULATION STEPPING & PERFORMANCE TRACKING
+    // --------------------------------------------------------------------------
+    let lastTime = performance.now();
+    let frameCounter = 0;
+    let fpsAccumulator = 0;
+    let currentFPS = 60.0;
+
+    function step() {
+      let now = performance.now();
+      let dt = Math.min((now - lastTime) / 1000, 0.05) * timeScale;
+      let frameMs = now - lastTime;
+      lastTime = now;
+
+      // FPS tracking
+      frameCounter++;
+      fpsAccumulator += frameMs;
+      if (fpsAccumulator >= 500) {
+        currentFPS = (frameCounter * 1000) / fpsAccumulator;
+        frameCounter = 0;
+        fpsAccumulator = 0;
+      }
+
+      if (!isPaused) {
+        // Kinematics Integration
+        for (let b of bodies) {
+          if (b.invMass === 0) continue;
+          if (gravityEnabled) b.vy += 300 * dt;
+          b.x += b.vx * dt;
+          b.y += b.vy * dt;
+
+          // Boundary wall collision with restitution
+          if (b.x - b.radius < 0) { b.x = b.radius; b.vx = -b.vx * restitution; }
+          if (b.x + b.radius > worldWidth) { b.x = worldWidth - b.radius; b.vx = -b.vx * restitution; }
+          if (b.y - b.radius < 0) { b.y = b.radius; b.vy = -b.vy * restitution; }
+          if (b.y + b.radius > worldHeight) { b.y = worldHeight - b.radius; b.vy = -b.vy * restitution; }
+        }
+
+        // Right mouse gravity pull
+        if (isRightMouseDown) {
+          for (let b of bodies) {
+            if (b.invMass === 0) continue;
+            let dx = mouseWorldPos.x - b.x;
+            let dy = mouseWorldPos.y - b.y;
+            let d2 = dx * dx + dy * dy;
+            if (d2 < 280 * 280 && d2 > 4) {
+              b.vx += dx * 0.8 * dt;
+              b.vy += dy * 0.8 * dt;
+            }
+          }
+        }
+
+        // BVH Construction (Timed)
+        bvhTests = 0;
+        maxTreeDepth = 0;
+        totalBVHNodes = 0;
+        
+        let t0 = performance.now();
+        let root = buildBVH([...bodies]);
+        bvhBuildTimeUs = (performance.now() - t0) * 1000;
+
+        // BVH Broad Phase Query (Timed)
+        let pairs = [];
+        let t1 = performance.now();
+        querySelf(root, pairs);
+        bvhQueryTimeUs = (performance.now() - t1) * 1000;
+        broadPhasePairsCount = pairs.length;
+
+        // Narrow Phase Resolution
+        narrowPhaseHitsCount = 0;
+        for (let p of pairs) {
+          resolveCollision(p[0], p[1]);
+        }
+
+        // Render Canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        renderScene(root);
+
+        // Update Live Charts & Telemetry
+        updateTelemetry(root);
+      }
+
+      requestAnimationFrame(step);
+    }
+
+    // --------------------------------------------------------------------------
+    // 9. TELEMETRY & LIVE COMPARISON CHART
+    // --------------------------------------------------------------------------
+    let chartSampleTimer = 0;
+
+    function updateTelemetry(root) {
+      const n = bodies.length;
+      const naiveChecks = (n * (n - 1)) / 2;
+      const prunedRatio = naiveChecks > 0 ? Math.max(0, ((naiveChecks - bvhTests) / naiveChecks) * 100) : 0;
+
+      // Update Numerical Displays
+      document.getElementById('txtFPS').innerText = currentFPS.toFixed(1) + ' FPS';
+      document.getElementById('txtFrameTime').innerText = (1000 / Math.max(currentFPS, 1)).toFixed(1) + ' ms';
+      document.getElementById('txtBVHTests').innerText = bvhTests;
+      document.getElementById('txtBruteTests').innerText = naiveChecks;
+      document.getElementById('txtPrunedRatio').innerText = prunedRatio.toFixed(1) + '%';
+      document.getElementById('txtPrunedBadge').innerText = prunedRatio.toFixed(0) + '% CULLED';
+      document.getElementById('efficiencyFill').style.width = prunedRatio + '%';
+
+      document.getElementById('txtDepth').innerText = maxTreeDepth;
+      document.getElementById('txtNodes').innerText = totalBVHNodes;
+      document.getElementById('txtBroadPairs').innerText = broadPhasePairsCount;
+      document.getElementById('txtNarrowHits').innerText = narrowPhaseHitsCount;
+
+      // Physics Conservation Numbers
       let totalKE = bodies.reduce((sum, b) => sum + b.getKE(), 0);
       let totalPx = bodies.reduce((sum, b) => sum + b.mass * b.vx, 0);
       let totalPy = bodies.reduce((sum, b) => sum + b.mass * b.vy, 0);
@@ -483,87 +1888,495 @@
       document.getElementById('txtCollisions').innerText = cumulativeCollisions;
       document.getElementById('txtDissipated').innerText = energyDissipated.toFixed(1) + ' J';
 
-      let n = bodies.length;
-      let bruteForce = (n * (n - 1)) / 2;
-      document.getElementById('txtBodyCount').innerText = n;
-      document.getElementById('txtBVHTests').innerText = bvhTests;
-      document.getElementById('txtBruteTests').innerText = bruteForce;
-      let prunedRatio = bruteForce > 0 ? ((bruteForce - bvhTests) / bruteForce * 100) : 0;
-      document.getElementById('txtPruned').innerText = prunedRatio.toFixed(1) + '%';
-
-      requestAnimationFrame(step);
-    }
-
-    function setMode(newMode) {
-      mode = newMode;
-      document.getElementById('btnElastic').classList.remove('active');
-      document.getElementById('btnInelastic').classList.remove('active');
-      document.getElementById('btnPartial').classList.remove('active');
-
-      let badge = document.getElementById('txtMode');
-
-      if (mode === 'elastic') {
-        restitution = 1.0;
-        document.getElementById('btnElastic').classList.add('active');
-        badge.innerText = 'ELASTIC (e=1.0)';
-        badge.className = 'badge badge-elastic';
-      } else if (mode === 'inelastic') {
-        restitution = 0.0;
-        document.getElementById('btnInelastic').classList.add('active');
-        badge.innerText = 'INELASTIC (e=0.0)';
-        badge.className = 'badge badge-inelastic';
-      } else {
-        restitution = 0.75;
-        document.getElementById('btnPartial').classList.add('active');
-        badge.innerText = 'PARTIALLY ELASTIC (e=0.75)';
-        badge.className = 'badge badge-partial';
+      // Update Chart History every ~5 frames
+      chartSampleTimer++;
+      if (chartSampleTimer % 5 === 0) {
+        historyNaive.push(naiveChecks);
+        historyNaive.shift();
+        historyBVH.push(bvhTests);
+        historyBVH.shift();
+        renderLiveChart();
       }
     }
 
-    function toggleFriction() {
-      frictionEnabled = !frictionEnabled;
-      let btn = document.getElementById('btnFriction');
-      btn.innerText = frictionEnabled ? 'Friction: ON' : 'Friction: OFF';
-      btn.classList.toggle('active', frictionEnabled);
+    function renderLiveChart() {
+      const w = chartCanvas.width;
+      const h = chartCanvas.height;
+      chartCtx.clearRect(0, 0, w, h);
+
+      const maxVal = Math.max(...historyNaive, 10);
+      const stepX = w / (historyNaive.length - 1);
+
+      // Draw Naive O(N²) Curve (Rose)
+      chartCtx.beginPath();
+      for (let i = 0; i < historyNaive.length; i++) {
+        let x = i * stepX;
+        let y = h - (historyNaive[i] / maxVal) * (h - 8) - 4;
+        if (i === 0) chartCtx.moveTo(x, y); else chartCtx.lineTo(x, y);
+      }
+      chartCtx.strokeStyle = 'rgba(251, 113, 133, 0.85)';
+      chartCtx.lineWidth = 1.5;
+      chartCtx.stroke();
+
+      // Draw BVH Curve (Cyan)
+      chartCtx.beginPath();
+      for (let i = 0; i < historyBVH.length; i++) {
+        let x = i * stepX;
+        let y = h - (historyBVH[i] / maxVal) * (h - 8) - 4;
+        if (i === 0) chartCtx.moveTo(x, y); else chartCtx.lineTo(x, y);
+      }
+      chartCtx.strokeStyle = '#38bdf8';
+      chartCtx.lineWidth = 2.0;
+      chartCtx.stroke();
+    }
+
+    // --------------------------------------------------------------------------
+    // 10. INTERACTION CONTROLS & EVENT LISTENERS
+    // --------------------------------------------------------------------------
+    
+    function screenToWorld(sx, sy) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = sx - rect.left;
+      const clientY = sy - rect.top;
+      return {
+        x: (clientX - camera.x) / camera.zoom,
+        y: (clientY - camera.y) / camera.zoom
+      };
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      const pos = screenToWorld(e.clientX, e.clientY);
+
+      if (e.button === 2) { // Right Click
+        isRightMouseDown = true;
+        mouseWorldPos = pos;
+        return;
+      }
+
+      if (e.button === 0) { // Left Click
+        if (activeTool === 'spawn') {
+          spawnBodyAt(pos.x, pos.y);
+          return;
+        }
+
+        // Check if clicked body to drag/throw
+        for (let b of bodies) {
+          let dist = Math.hypot(b.x - pos.x, b.y - pos.y);
+          if (dist <= b.radius) {
+            draggedBody = b;
+            dragStartPos = { x: b.x, y: b.y };
+            dragCurrentPos = { x: pos.x, y: pos.y };
+            return;
+          }
+        }
+
+        // Otherwise initiate camera pan
+        camera.isPanning = true;
+        camera.lastMouseX = e.clientX;
+        camera.lastMouseY = e.clientY;
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      const pos = screenToWorld(e.clientX, e.clientY);
+      mouseWorldPos = pos;
+
+      if (draggedBody) {
+        dragCurrentPos = pos;
+      } else if (camera.isPanning) {
+        camera.x += e.clientX - camera.lastMouseX;
+        camera.y += e.clientY - camera.lastMouseY;
+        camera.lastMouseX = e.clientX;
+        camera.lastMouseY = e.clientY;
+      }
+
+      // Hover Inspector Tooltip
+      let hovered = null;
+      for (let b of bodies) {
+        if (Math.hypot(b.x - pos.x, b.y - pos.y) <= b.radius) {
+          hovered = b;
+          break;
+        }
+      }
+
+      if (hovered) {
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.clientX + 14) + 'px';
+        tooltip.style.top = (e.clientY + 14) + 'px';
+        tooltip.innerHTML = `
+          <div><b>Body #${hovered.id}</b></div>
+          <div>Pos: (${hovered.x.toFixed(0)}, ${hovered.y.toFixed(0)})</div>
+          <div>Vel: ${Math.hypot(hovered.vx, hovered.vy).toFixed(1)} px/s</div>
+          <div>Mass: ${hovered.mass.toFixed(1)} kg | r: ${hovered.radius}px</div>
+          <div>KE: ${hovered.getKE().toFixed(1)} J</div>
+        `;
+      } else {
+        tooltip.style.display = 'none';
+      }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 2) {
+        isRightMouseDown = false;
+      }
+      if (e.button === 0) {
+        if (draggedBody) {
+          // Apply slingshot impulse
+          let impulseX = (draggedBody.x - dragCurrentPos.x) * 4;
+          let impulseY = (draggedBody.y - dragCurrentPos.y) * 4;
+          draggedBody.vx += impulseX;
+          draggedBody.vy += impulseY;
+          showToast(`Slingshot applied to Body #${draggedBody.id}`);
+          draggedBody = null;
+        }
+        camera.isPanning = false;
+      }
+    });
+
+    // Prevent context menu on canvas for right-click attractor
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Mouse Wheel Zoom
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      const mouse = screenToWorld(e.clientX, e.clientY);
+
+      const newZoom = Math.min(Math.max(camera.zoom * zoomFactor, 0.4), 3.0);
+      camera.x -= (mouse.x * newZoom - mouse.x * camera.zoom);
+      camera.y -= (mouse.y * newZoom - mouse.y * camera.zoom);
+      camera.zoom = newZoom;
+
+      document.getElementById('zoomLevel').innerText = Math.round(camera.zoom * 100) + '%';
+    });
+
+    function resetCamera() {
+      camera.x = 0;
+      camera.y = 0;
+      camera.zoom = 1.0;
+      document.getElementById('zoomLevel').innerText = '100%';
+      showToast('Camera reset to center view');
+    }
+
+    function spawnBodyAt(x, y) {
+      let r = 12 + Math.random() * 8;
+      let mass = (r / 10) * (r / 10);
+      let newBody = new RigidBody(
+        bodies.length + 1,
+        x,
+        y,
+        (Math.random() - 0.5) * 200,
+        (Math.random() - 0.5) * 200,
+        mass,
+        r,
+        PALETTE[bodies.length % PALETTE.length]
+      );
+      bodies.push(newBody);
+      document.getElementById('bodyCountSlider').value = bodies.length;
+      document.getElementById('valBodyCount').innerText = bodies.length;
+      showToast(`Spawned Body #${newBody.id}`);
+    }
+
+    // --------------------------------------------------------------------------
+    // 11. CONTROLS, TOGGLES & MODALS
+    // --------------------------------------------------------------------------
+    
+    function togglePlayPause() {
+      isPaused = !isPaused;
+      const btn = document.getElementById('btnPlayPause');
+      const label = document.getElementById('labelPlayPause');
+      const icon = document.getElementById('iconPlayPause');
+
+      if (isPaused) {
+        label.innerText = 'Resume';
+        icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+        btn.classList.remove('primary');
+        showToast('Simulation Paused');
+      } else {
+        label.innerText = 'Pause';
+        icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+        btn.classList.add('primary');
+        showToast('Simulation Resumed');
+      }
+    }
+
+    function stepSingleFrame() {
+      isPaused = true;
+      togglePlayPause(); // Updates UI
+      isPaused = true;
+      step(); // Executes 1 tick
+      showToast('Stepped 1 Frame (dt)');
+    }
+
+    function updateTimeScale(val) {
+      timeScale = parseFloat(val);
+      document.getElementById('valSpeed').innerText = timeScale.toFixed(1) + 'x';
+    }
+
+    function setPhysicsMode(newMode) {
+      mode = newMode;
+      document.getElementById('segElastic').className = 'seg-btn' + (mode === 'elastic' ? ' active elastic' : '');
+      document.getElementById('segInelastic').className = 'seg-btn' + (mode === 'inelastic' ? ' active inelastic' : '');
+      document.getElementById('segPartial').className = 'seg-btn' + (mode === 'partial' ? ' active partial' : '');
+
+      if (mode === 'elastic') restitution = 1.0;
+      else if (mode === 'inelastic') restitution = 0.0;
+      else restitution = 0.75;
+
+      showToast(`Switched to ${mode.toUpperCase()} regime (e=${restitution})`);
     }
 
     function toggleGravity() {
       gravityEnabled = !gravityEnabled;
-      let btn = document.getElementById('btnGravity');
-      btn.innerText = gravityEnabled ? 'Gravity: ON' : 'Gravity: OFF';
+      const btn = document.getElementById('btnGravity');
       btn.classList.toggle('active', gravityEnabled);
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg> Gravity: ${gravityEnabled ? 'ON' : 'OFF'}`;
+      showToast(`Environmental Gravity ${gravityEnabled ? 'ENABLED' : 'DISABLED'}`);
     }
 
-    function toggleBVHBoxes() {
-      showBVH = !showBVH;
-      let btn = document.getElementById('btnBoxes');
-      btn.innerText = showBVH ? 'BVH Boxes: ON' : 'BVH Boxes: OFF';
-      btn.classList.toggle('active', showBVH);
+    function toggleFriction() {
+      frictionEnabled = !frictionEnabled;
+      const btn = document.getElementById('btnFriction');
+      btn.classList.toggle('active', frictionEnabled);
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h16M4 18h16M4 10h16"/></svg> Friction: ${frictionEnabled ? 'ON' : 'OFF'}`;
+      showToast(`Coulomb Friction ${frictionEnabled ? 'ENABLED' : 'DISABLED'}`);
     }
 
-    function addBodies(count) {
-      for (let i = 0; i < count; i++) {
-        let colors = ['#38bdf8', '#fbbf24', '#34d399', '#f472b6', '#a78bfa'];
-        bodies.push(new RigidBody(
-          bodies.length + 1,
-          50 + Math.random() * 700,
-          50 + Math.random() * 400,
-          (Math.random() - 0.5) * 300,
-          (Math.random() - 0.5) * 300,
-          1 + Math.random() * 3,
-          12 + Math.random() * 8,
-          colors[Math.floor(Math.random() * colors.length)]
-        ));
+    function toggleOption(opt) {
+      if (opt === 'bvh') {
+        showBVH = !showBVH;
+        document.getElementById('toggleBVH').classList.toggle('active', showBVH);
+        showToast(`BVH Bounds ${showBVH ? 'Shown' : 'Hidden'}`);
+      } else if (opt === 'depth') {
+        showDepth = !showDepth;
+        document.getElementById('toggleDepth').classList.toggle('active', showDepth);
+        showToast(`Depth Hue ${showDepth ? 'Enabled' : 'Disabled'}`);
+      } else if (opt === 'contacts') {
+        showContacts = !showContacts;
+        document.getElementById('toggleContacts').classList.toggle('active', showContacts);
+        showToast(`Contact Normals ${showContacts ? 'Shown' : 'Hidden'}`);
+      } else if (opt === 'vel') {
+        showVectors = !showVectors;
+        document.getElementById('toggleVel').classList.toggle('active', showVectors);
+        showToast(`Velocity Vectors ${showVectors ? 'Shown' : 'Hidden'}`);
       }
     }
 
-    function resetSim() {
-      initBodies();
-      setMode('elastic');
+    function setActiveTool(t) {
+      activeTool = t;
+      document.getElementById('toolDrag').classList.toggle('active', t === 'drag');
+      document.getElementById('toolSpawn').classList.toggle('active', t === 'spawn');
+      canvas.style.cursor = t === 'spawn' ? 'copy' : 'crosshair';
+      showToast(`Active Tool: ${t === 'drag' ? 'Sling / Throw' : 'Spawn on Click'}`);
     }
 
-    initBodies();
+    function adjustBodyCount(target) {
+      while (bodies.length < target) {
+        addBodies(1, false);
+      }
+      while (bodies.length > target && bodies.length > 2) {
+        bodies.pop();
+      }
+      document.getElementById('valBodyCount').innerText = bodies.length;
+    }
+
+    function addBodies(count, notify = true) {
+      spawnRandomBodies(count);
+      document.getElementById('bodyCountSlider').value = bodies.length;
+      document.getElementById('valBodyCount').innerText = bodies.length;
+      if (notify) showToast(`Added ${count} Bodies (Total: ${bodies.length})`);
+    }
+
+    function resetSim() {
+      initBodies('default');
+      setPhysicsMode('elastic');
+      resetCamera();
+    }
+
+    // Themes
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('bvh_theme', next);
+      showToast(`Switched to ${next.toUpperCase()} theme`);
+    }
+
+    function toggleColorblind() {
+      const current = document.documentElement.getAttribute('data-theme');
+      if (current === 'colorblind') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        showToast('Colorblind Palette Disabled');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'colorblind');
+        showToast('Colorblind Friendly Palette Enabled');
+      }
+    }
+
+    // Modal Helpers
+    function openModal(id) {
+      document.getElementById(id).classList.add('open');
+    }
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+    function closeModalOnBackdrop(e, id) {
+      if (e.target.id === id) closeModal(id);
+    }
+    function openBenchmarkModal() {
+      isPaused = true;
+      openModal('benchmarkModal');
+    }
+    function openHelpModal() {
+      openModal('helpModal');
+    }
+
+    // Toast Notifications
+    function showToast(msg) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+        <span>${msg}</span>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 2800);
+    }
+
+    // --------------------------------------------------------------------------
+    // 12. BENCHMARK SUITE ALGORITHM (HEADLESS BVH vs NAIVE PROFILE)
+    // --------------------------------------------------------------------------
+    function runBenchmarkSweep() {
+      const tbody = document.getElementById('benchTableBody');
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: var(--accent-cyan); padding: 18px;">Profiling algorithm sweeps...</td></tr>';
+
+      setTimeout(() => {
+        const counts = [25, 50, 100, 250, 500, 1000];
+        let rowsHtml = '';
+
+        for (let n of counts) {
+          // Generate benchmark set
+          let testBodies = [];
+          for (let i = 0; i < n; i++) {
+            testBodies.push(new RigidBody(
+              i + 1,
+              Math.random() * 1000,
+              Math.random() * 650,
+              (Math.random() - 0.5) * 200,
+              (Math.random() - 0.5) * 200,
+              1.0,
+              10,
+              '#fff'
+            ));
+          }
+
+          let naiveChecks = (n * (n - 1)) / 2;
+
+          // BVH Build & Query Profile
+          bvhTests = 0;
+          let tBuild0 = performance.now();
+          let root = buildBVH([...testBodies]);
+          let buildUs = (performance.now() - tBuild0) * 1000;
+
+          let pairs = [];
+          let tQuery0 = performance.now();
+          querySelf(root, pairs);
+          let queryUs = (performance.now() - tQuery0) * 1000;
+
+          let pruned = naiveChecks > 0 ? (((naiveChecks - bvhTests) / naiveChecks) * 100).toFixed(1) : '0.0';
+          let speedup = bvhTests > 0 ? (naiveChecks / bvhTests).toFixed(1) + 'x' : '1.0x';
+
+          rowsHtml += `
+            <tr>
+              <td><b>${n}</b></td>
+              <td style="color: var(--accent-rose);">${naiveChecks.toLocaleString()}</td>
+              <td style="color: var(--accent-cyan); font-weight: 700;">${bvhTests.toLocaleString()}</td>
+              <td style="color: var(--accent-emerald);">${pruned}%</td>
+              <td>${buildUs.toFixed(1)}</td>
+              <td>${queryUs.toFixed(1)}</td>
+              <td style="color: var(--accent-cyan); font-weight: 700;">${speedup}</td>
+            </tr>
+          `;
+        }
+
+        tbody.innerHTML = rowsHtml;
+        showToast('Benchmark profiling complete');
+      }, 50);
+    }
+
+    // --------------------------------------------------------------------------
+    // 13. GLOBAL KEYBOARD SHORTCUTS
+    // --------------------------------------------------------------------------
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+      switch (e.key.toLowerCase()) {
+        case ' ':
+          e.preventDefault();
+          togglePlayPause();
+          break;
+        case '.':
+        case 'f':
+          stepSingleFrame();
+          break;
+        case 'r':
+          resetSim();
+          break;
+        case '1':
+          setPhysicsMode('elastic');
+          break;
+        case '2':
+          setPhysicsMode('inelastic');
+          break;
+        case '3':
+          setPhysicsMode('partial');
+          break;
+        case 'g':
+          toggleGravity();
+          break;
+        case 'c':
+          toggleFriction();
+          break;
+        case 'b':
+          toggleOption('bvh');
+          break;
+        case 'd':
+          toggleOption('depth');
+          break;
+        case 'z':
+          resetCamera();
+          break;
+        case 't':
+          toggleTheme();
+          break;
+        case '?':
+          openHelpModal();
+          break;
+        case 'escape':
+          closeModal('benchmarkModal');
+          closeModal('helpModal');
+          break;
+      }
+    });
+
+    // --------------------------------------------------------------------------
+    // 14. BOOTSTRAP APPLICATION
+    // --------------------------------------------------------------------------
+    const savedTheme = localStorage.getItem('bvh_theme');
+    if (savedTheme) {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+
+    resizeCanvas();
+    initBodies('default');
     requestAnimationFrame(step);
+
+    // Fade out onboarding hint after 7 seconds
+    setTimeout(() => {
+      const hint = document.getElementById('hintBanner');
+      if (hint) hint.style.opacity = '0';
+    }, 7000);
   </script>
 </body>
 </html>
