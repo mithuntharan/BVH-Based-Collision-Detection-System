@@ -2,12 +2,11 @@
 ### High-Performance Spatial Partitioning & Collision Dynamics Suite (DSA Case Study)
 
 [![C++20](https://img.shields.io/badge/Language-C%2B%2B20-blue.svg)](https://en.cppreference.com/w/cpp/20)
-[![HTML5 Canvas](https://img.shields.io/badge/Web-HTML5%20Canvas%20%2F%20Vanilla%20JS-orange.svg)](sim_viewer.html)
 [![Physics](https://img.shields.io/badge/Physics-Impulse%20%2B%20Coulomb%20Friction-emerald.svg)](#physics-engine)
 [![Complexity](https://img.shields.io/badge/Broad%20Phase-O(N%20log%20N)%20vs%20O(N%C2%B2)-cyan.svg)](#complexity-analysis)
 [![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 
-An industrial-grade, portfolio-ready 2D collision detection and impulse physics engine showcasing **Bounding Volume Hierarchy (BVH)** spatial partitioning. It delivers **real-time spatial subdivision**, **broad-phase subtree culling**, and **contact dynamics** in both a native C++20 / SDL3 application and a web-based, glassmorphic visualizer.
+An industrial-grade, portfolio-ready 2D collision detection and impulse physics engine showcasing **Bounding Volume Hierarchy (BVH)** spatial partitioning. It delivers **real-time spatial subdivision**, **broad-phase subtree culling**, and **contact dynamics** in a native C++20 / SDL3 application.
 
 ---
 
@@ -24,51 +23,6 @@ An industrial-grade, portfolio-ready 2D collision detection and impulse physics 
   - Tangential Coulomb surface friction with static and dynamic impulse clamping.
   - Baumgarte positional de-penetration slop.
   - Quantitative conservation auditor computing Kinetic Energy ($\sum \frac{1}{2}mv^2$), Momentum ($|P|$), and dissipated energy.
-- **Interactive Web Visualizer (`sim_viewer.html`)**:
-  - Full-screen responsive 3-pane glassmorphic workstation.
-  - Live rolling canvas chart graphing **BVH broad-phase tests vs. Naive $O(N^2)$ checks**.
-  - Interactive slingshot dragging, right-click gravitational attractor well, and pan/zoom viewport.
-  - Depth-coded hierarchical box coloring, contact normals, and velocity vectors.
-  - Persistent Light / Dark / Colorblind-safe accessibility themes.
-  - Built-in Benchmark Suite profiling $N = 25 \to 1000$ particles on the fly.
-
----
-
-## 🖥️ Interactive Web Demo (`sim_viewer.html`)
-
-The interactive web visualizer runs in any modern web browser with **zero dependencies or build steps**.
-
-### Launching the Web Visualizer
-Simply open `sim_viewer.html` in your favorite browser, or serve it locally:
-
-```bash
-# Using Python
-python -m http.server 8080
-
-# Using Node.js
-npx serve .
-```
-Navigate to `http://localhost:8080/sim_viewer.html`.
-
-### Controls & Navigation
-
-| Input | Action |
-| :--- | :--- |
-| **Left Click + Drag (Body)** | Slingshot throw: drag to stretch impulse vector, release to launch |
-| **Left Click + Drag (Empty Space)** | Pan simulation camera across the world |
-| **Mouse Wheel** | Smooth zoom in / zoom out |
-| **Right Click + Drag** | Gravity Well / Attractor: pulls all nearby particles toward the cursor |
-| **Space** | Pause / Resume physics simulation |
-| **.` or `F** | Step simulation by single fixed timestep ($dt = 1/60\text{ s}$) |
-| **R** | Reset scene to default balanced gas configuration |
-| **1 / 2 / 3** | Switch collision regime: **1** = Elastic ($e=1.0$), **2** = Inelastic ($e=0.0$), **3** = Partial ($e=0.75$) |
-| **G** | Toggle downward environmental gravity |
-| **C** | Toggle surface Coulomb friction |
-| **B** | Toggle hierarchical BVH bounding box outlines |
-| **D** | Toggle depth-based gradient box coloring |
-| **Z** | Reset camera zoom and pan to center |
-| **T** | Cycle theme: Dark (obsidian/cyan) $\to$ Light (zinc) $\to$ Colorblind-safe |
-| **?** | Open on-screen keyboard shortcuts guide |
 
 ---
 
@@ -102,7 +56,6 @@ Let $N$ denote the number of active bodies in the simulation:
 
 ```
 BVH-Based-Collision-Detection-System/
-├── sim_viewer.html         # Interactive portfolio web suite (HTML5/Canvas/Vanilla JS)
 ├── CMakeLists.txt          # Modern C++20 CMake build configuration
 ├── vcpkg.json              # SDL3 dependency pinning
 ├── BENCHMARKS.md           # Benchmark logs & empirical tables
